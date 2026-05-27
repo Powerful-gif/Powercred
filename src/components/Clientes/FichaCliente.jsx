@@ -21,6 +21,7 @@ export default function FichaCliente() {
   const [creditos, setCreditos] = useState([])
   const [loading, setLoading] = useState(true)
   const [confirmIncobrable, setConfirmIncobrable] = useState(null)
+  const [periPotencial, setPeriPotencial] = useState('mensual')
 
   useEffect(() => {
     loadCliente()
@@ -164,21 +165,43 @@ export default function FichaCliente() {
             {/* Potencial de crédito */}
             {capacidad.disponible > 0 && (
               <div className="mt-4">
-                <div className="text-xs text-gray-500 mb-2 font-medium">¿Cuánto puede sacar? · Cuotas mensuales (Hogar)</div>
-                <div className="grid grid-cols-4 gap-2">
-                  {[3, 6, 9, 12].map(n => {
-                    const tasa = getTasa('hogar', 'mensual', n)
-                    const importeMax = Math.floor(capacidad.disponible * n / (1 + tasa / 100))
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs text-gray-500 font-medium">¿Cuánto puede sacar? (Hogar)</div>
+                  <div className="flex gap-1">
+                    {['mensual', 'quincenal', 'semanal'].map(p => (
+                      <button
+                        key={p}
+                        onClick={() => setPeriPotencial(p)}
+                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors capitalize ${
+                          periPotencial === p ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {(() => {
+                    const opciones = { mensual: [3,6,9,12], quincenal: [4,6,8,10,12], semanal: [4,8,12,16,20,24] }[periPotencial]
+                    const gridClass = periPotencial === 'semanal' ? 'grid-cols-3' : periPotencial === 'quincenal' ? 'grid-cols-5' : 'grid-cols-4'
+                    const cuotaMaxPeriodo = periPotencial === 'mensual' ? capacidad.disponible : periPotencial === 'quincenal' ? capacidad.disponible / 2 : capacidad.disponible / 4.33
                     return (
-                      <div key={n} className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
-                        <div className="text-xs font-semibold text-gray-700">{n} cuotas</div>
-                        <div className="text-xs text-gray-400 mb-1">{tasa > 0 ? `${tasa}%` : 'sin interés'}</div>
-                        <div className="font-bold text-blue-800 text-sm">{formatMoneda(importeMax)}</div>
-                        <div className="text-xs text-gray-400 mt-0.5">máx. a financiar</div>
+                      <div className={`grid ${gridClass} gap-2`}>
+                        {opciones.map(n => {
+                          const tasa = getTasa('hogar', periPotencial, n)
+                          const importeMax = Math.floor(cuotaMaxPeriodo * n / (1 + tasa / 100))
+                          return (
+                            <div key={n} className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
+                              <div className="text-xs font-semibold text-gray-700">{n} cuotas</div>
+                              <div className="text-xs text-gray-400 mb-1">{tasa > 0 ? `${tasa}%` : 'sin interés'}</div>
+                              <div className="font-bold text-blue-800 text-sm">{formatMoneda(importeMax)}</div>
+                              <div className="text-xs text-gray-400 mt-0.5">máx.</div>
+                            </div>
+                          )
+                        })}
                       </div>
                     )
-                  })}
-                </div>
+                  })()}
               </div>
             )}
           </div>
