@@ -11,6 +11,7 @@ import TarjetaCuotasDoc from '../Documentos/TarjetaCuotas'
 import PagareDoc from '../Documentos/Pagare'
 
 const CUOTAS_MENSUAL = [3, 6, 9, 12]
+const CUOTAS_QUINCENAL = [4, 6, 8, 10, 12]
 const CUOTAS_SEMANAL = [4, 8, 12, 16, 20, 24]
 
 export default function NuevoCredito() {
@@ -205,7 +206,7 @@ export default function NuevoCredito() {
     setTimeout(() => window.print(), 300)
   }
 
-  const cuotasOpciones = periodicidad === 'mensual' ? CUOTAS_MENSUAL : CUOTAS_SEMANAL
+  const cuotasOpciones = periodicidad === 'mensual' ? CUOTAS_MENSUAL : periodicidad === 'quincenal' ? CUOTAS_QUINCENAL : CUOTAS_SEMANAL
 
   // ── PASO 1: Buscar cliente ──────────────────────────────
   if (paso === 1) return (
@@ -445,7 +446,7 @@ export default function NuevoCredito() {
           <div>
             <label className="label mb-2">Periodicidad</label>
             <div className="flex gap-3">
-              {['mensual', 'semanal'].map(p => (
+              {['mensual', 'quincenal', 'semanal'].map(p => (
                 <button
                   key={p}
                   type="button"
