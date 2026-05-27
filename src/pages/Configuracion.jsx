@@ -163,6 +163,7 @@ export default function Configuracion() {
               ))}
             </div>
           ))}
+
         </div>
       )}
 

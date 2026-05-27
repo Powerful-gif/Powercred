@@ -31,10 +31,7 @@ export default function Consulta() {
 
   function getTasaRubro(n, peri) {
     if (rubro === 'general') return getTasa('hogar', peri, n)
-    const meses = peri === 'mensual' ? n : peri === 'quincenal' ? n * 0.5 : n / 4.33
-    if (meses <= 6) return 0
-    if (peri === 'mensual') return n === 9 ? 18 : n === 12 ? 24 : getTasa('hogar', peri, n)
-    return getTasa('hogar', peri, n)
+    return getTasa('colchones', peri, n)
   }
 
   function filas(peri, opciones) {
