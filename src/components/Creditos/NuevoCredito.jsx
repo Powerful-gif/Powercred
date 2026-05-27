@@ -100,7 +100,8 @@ export default function NuevoCredito() {
   const cantCuotasEfectiva = modoPersonalizado ? (parseInt(cuotasPersonalizada) || null) : cantCuotas
 
   function getTasaColchones(n, peri) {
-    if (n <= 6) return 0
+    const meses = peri === 'mensual' ? n : peri === 'quincenal' ? n * 0.5 : n / 4.33
+    if (meses <= 6) return 0
     if (peri === 'mensual') return n === 9 ? 18 : n === 12 ? 24 : getTasa(tipo, peri, n)
     return getTasa(tipo, peri, n)
   }
