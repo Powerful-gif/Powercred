@@ -27,7 +27,7 @@ export function calcularTEA(importe, cuota, nCuotas, periodicidad) {
     rate = rate - f / dpv
     if (rate < 0) rate = 0.001
   }
-  const periodsPerYear = periodicidad === 'mensual' ? 12 : 52
+  const periodsPerYear = periodicidad === 'mensual' ? 12 : periodicidad === 'quincenal' ? 24 : 52
   const tea = Math.pow(1 + rate, periodsPerYear) - 1
   return Math.round(tea * 10000) / 100 // como porcentaje con 2 decimales
 }
@@ -69,6 +69,9 @@ export function calcularPrimerVencimiento(fechaInicio, periodicidad) {
     const mesNext = mes === 12 ? 1 : mes + 1
     const fecha = `${anio}-${String(mesNext).padStart(2, '0')}-10`
     return ajustarFinDeSemana(fecha)
+  } else if (periodicidad === 'quincenal') {
+    d.setDate(d.getDate() + 15)
+    return d.toISOString().split('T')[0]
   } else {
     // Viernes de la semana siguiente
     return siguienteViernes(fechaInicio)
@@ -90,6 +93,9 @@ export function generarFechasVencimiento(primerVencimiento, cantidadCuotas, peri
       d.setMonth(d.getMonth() + 1)
       const fecha = d.toISOString().split('T')[0]
       fechaActual = ajustarFinDeSemana(fecha)
+    } else if (periodicidad === 'quincenal') {
+      d.setDate(d.getDate() + 15)
+      fechaActual = d.toISOString().split('T')[0]
     } else {
       d.setDate(d.getDate() + 7)
       fechaActual = d.toISOString().split('T')[0]

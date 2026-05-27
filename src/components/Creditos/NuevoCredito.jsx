@@ -40,6 +40,11 @@ export default function NuevoCredito() {
   const [cuotasGuardadas, setCuotasGuardadas] = useState([])
   const [docActivo, setDocActivo] = useState(null)
   const [advertenciaCapacidad, setAdvertenciaCapacidad] = useState(false)
+  const [rubro, setRubro] = useState('general')
+  const [modoPersonalizado, setModoPersonalizado] = useState(false)
+  const [cuotasPersonalizada, setCuotasPersonalizada] = useState('')
+  const [tasaPersonalizada, setTasaPersonalizada] = useState('')
+  const [periodicidadPersonalizada, setPeriodicidadPersonalizada] = useState('mensual')
 
   useEffect(() => {
     const clienteId = searchParams.get('cliente')
@@ -47,10 +52,11 @@ export default function NuevoCredito() {
   }, [])
 
   useEffect(() => {
-    if (fechaInicio && periodicidad) {
-      setPrimerVenc(calcularPrimerVencimiento(fechaInicio, periodicidad))
+    const pEf = modoPersonalizado ? periodicidadPersonalizada : periodicidad
+    if (fechaInicio && pEf) {
+      setPrimerVenc(calcularPrimerVencimiento(fechaInicio, pEf))
     }
-  }, [fechaInicio, periodicidad])
+  }, [fechaInicio, periodicidad, modoPersonalizado, periodicidadPersonalizada])
 
   async function cargarClientePorId(id) {
     const { data: cli } = await supabase.from('clientes').select('*').eq('id', id).single()
@@ -88,13 +94,28 @@ export default function NuevoCredito() {
     setPaso(2)
   }
 
+  // Valores efectivos según modo (estándar o personalizado)
+  const periodicidadEfectiva = modoPersonalizado ? periodicidadPersonalizada : periodicidad
+  const cantCuotasEfectiva = modoPersonalizado ? (parseInt(cuotasPersonalizada) || null) : cantCuotas
+
+  function getTasaBoton(n) {
+    if (tipo === 'hogar' && rubro === 'colchones_sillones' && periodicidad === 'mensual' && (n === 3 || n === 6)) return 0
+    return getTasa(tipo, periodicidad, n)
+  }
+
+  function getTasaEfectiva() {
+    if (modoPersonalizado) return parseFloat(tasaPersonalizada) || 0
+    if (tipo === 'hogar' && rubro === 'colchones_sillones' && periodicidadEfectiva === 'mensual' && (cantCuotasEfectiva === 3 || cantCuotasEfectiva === 6)) return 0
+    return getTasa(tipo, periodicidadEfectiva, cantCuotasEfectiva)
+  }
+
   // Cálculos en tiempo real
-  const tasa = cantCuotas ? getTasa(tipo, periodicidad, cantCuotas) : 0
-  const { total: totalConIntereses, cuota: importeCuota } = importe && cantCuotas
-    ? calcularCuota(parseFloat(importe), tasa, cantCuotas)
+  const tasa = cantCuotasEfectiva ? getTasaEfectiva() : 0
+  const { total: totalConIntereses, cuota: importeCuota } = importe && cantCuotasEfectiva
+    ? calcularCuota(parseFloat(importe), tasa, cantCuotasEfectiva)
     : { total: 0, cuota: 0 }
-  const tea = importeCuota && cantCuotas
-    ? calcularTEA(parseFloat(importe), importeCuota, cantCuotas, periodicidad)
+  const tea = importeCuota && cantCuotasEfectiva
+    ? calcularTEA(parseFloat(importe), importeCuota, cantCuotasEfectiva, periodicidadEfectiva)
     : 0
   const cft = calcularCFT(tea)
 
@@ -102,11 +123,11 @@ export default function NuevoCredito() {
     ? calcularCapacidadDisponible(clienteEncontrado.capacidad_pago_mensual, creditosActivos)
     : null
 
-  const cuotaMensualEquivalente = periodicidad === 'mensual' ? importeCuota : importeCuota * 4.33
+  const cuotaMensualEquivalente = periodicidadEfectiva === 'mensual' ? importeCuota : periodicidadEfectiva === 'quincenal' ? importeCuota * 2 : importeCuota * 4.33
   const superaCapacidad = capacidad && cuotaMensualEquivalente > capacidad.disponible
 
   async function guardarCredito() {
-    if (!clienteEncontrado || !cantCuotas || !importe || !primerVenc) return
+    if (!clienteEncontrado || !cantCuotasEfectiva || !importe || !primerVenc) return
     if (superaCapacidad && !advertenciaCapacidad) {
       setAdvertenciaCapacidad(true)
       return
@@ -135,8 +156,8 @@ export default function NuevoCredito() {
       tasa_efectiva_anual: tea,
       costo_financiero_total: cft,
       total_con_intereses: totalConIntereses,
-      cantidad_cuotas: cantCuotas,
-      periodicidad,
+      cantidad_cuotas: cantCuotasEfectiva,
+      periodicidad: periodicidadEfectiva,
       importe_cuota: importeCuota,
       fecha_inicio: fechaInicio,
       fecha_primer_vencimiento: primerVenc,
@@ -159,7 +180,7 @@ export default function NuevoCredito() {
     }
 
     // Generar cuotas
-    const fechas = generarFechasVencimiento(primerVenc, cantCuotas, periodicidad)
+    const fechas = generarFechasVencimiento(primerVenc, cantCuotasEfectiva, periodicidadEfectiva)
     const cuotas = fechas.map((fecha, i) => ({
       credito_id: credData.id,
       numero_cuota: i + 1,
@@ -357,7 +378,7 @@ export default function NuevoCredito() {
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => { setTipo('hogar'); setCantCuotas(null) }}
+              onClick={() => { setTipo('hogar'); setCantCuotas(null); setModoPersonalizado(false) }}
               className={`p-4 rounded-xl border-2 text-left transition-colors ${
                 tipo === 'hogar' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
               }`}
@@ -367,7 +388,7 @@ export default function NuevoCredito() {
             </button>
             <button
               type="button"
-              onClick={() => { setTipo('efectivo'); setCantCuotas(null) }}
+              onClick={() => { setTipo('efectivo'); setCantCuotas(null); setRubro('general'); setModoPersonalizado(false) }}
               className={`p-4 rounded-xl border-2 text-left transition-colors ${
                 tipo === 'efectivo' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
               }`}
@@ -377,6 +398,31 @@ export default function NuevoCredito() {
             </button>
           </div>
         </div>
+
+        {/* Rubro (solo para crédito del hogar) */}
+        {tipo === 'hogar' && (
+          <div>
+            <label className="label mb-2">Rubro</label>
+            <div className="flex gap-3 flex-wrap">
+              {[
+                { id: 'general', label: 'General', desc: 'Tasas estándar del sistema' },
+                { id: 'colchones_sillones', label: 'Colchones y Sillones', desc: '3 y 6 cuotas sin interés' },
+              ].map(r => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => { setRubro(r.id); setCantCuotas(null) }}
+                  className={`px-4 py-2.5 rounded-xl border-2 text-left transition-colors ${
+                    rubro === r.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="font-semibold text-sm">{r.label}</div>
+                  <div className="text-xs text-gray-400 mt-0.5">{r.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Importe */}
         <div>
@@ -394,50 +440,111 @@ export default function NuevoCredito() {
           </div>
         </div>
 
-        {/* Periodicidad */}
-        <div>
-          <label className="label mb-2">Periodicidad</label>
-          <div className="flex gap-3">
-            {['mensual', 'semanal'].map(p => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => { setPeriodicidad(p); setCantCuotas(null) }}
-                className={`px-6 py-2 rounded-lg border-2 font-medium transition-colors capitalize ${
-                  periodicidad === p ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                {p}
-              </button>
-            ))}
+        {/* Periodicidad (oculta en modo personalizado) */}
+        {!modoPersonalizado && (
+          <div>
+            <label className="label mb-2">Periodicidad</label>
+            <div className="flex gap-3">
+              {['mensual', 'semanal'].map(p => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => { setPeriodicidad(p); setCantCuotas(null) }}
+                  className={`px-6 py-2 rounded-lg border-2 font-medium transition-colors capitalize ${
+                    periodicidad === p ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Plan de cuotas */}
         <div>
           <label className="label mb-2">Plan de cuotas</label>
-          <div className="flex flex-wrap gap-2">
-            {cuotasOpciones.map(n => {
-              const tasaOpcion = getTasa(tipo, periodicidad, n)
-              return (
+          {!modoPersonalizado ? (
+            <div className="flex flex-wrap gap-2">
+              {cuotasOpciones.map(n => {
+                const tasaOpcion = getTasaBoton(n)
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setCantCuotas(n)}
+                    className={`px-4 py-3 rounded-xl border-2 text-center transition-colors min-w-20 ${
+                      cantCuotas === n ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="font-bold text-sm">{n}</div>
+                    <div className="text-xs text-gray-400">{tasaOpcion}%</div>
+                  </button>
+                )
+              })}
+              <button
+                type="button"
+                onClick={() => { setModoPersonalizado(true); setCantCuotas(null) }}
+                className="px-4 py-3 rounded-xl border-2 border-dashed border-gray-300 text-center hover:border-orange-400 hover:bg-orange-50 transition-colors min-w-20"
+              >
+                <div className="text-sm text-gray-500">✏️</div>
+                <div className="text-xs text-gray-400">Personalizada</div>
+              </button>
+            </div>
+          ) : (
+            <div className="border-2 border-orange-200 bg-orange-50 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-orange-800 text-sm">Plan Personalizado</span>
                 <button
-                  key={n}
                   type="button"
-                  onClick={() => setCantCuotas(n)}
-                  className={`px-4 py-3 rounded-xl border-2 text-center transition-colors min-w-20 ${
-                    cantCuotas === n ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                  onClick={() => { setModoPersonalizado(false); setCuotasPersonalizada(''); setTasaPersonalizada('') }}
+                  className="text-xs text-gray-500 hover:text-gray-700 underline"
                 >
-                  <div className="font-bold text-sm">{n}</div>
-                  <div className="text-xs text-gray-400">{tasaOpcion}%</div>
+                  ← Volver a planes estándar
                 </button>
-              )
-            })}
-          </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="label text-xs">Periodicidad</label>
+                  <select
+                    className="input-field text-sm"
+                    value={periodicidadPersonalizada}
+                    onChange={e => setPeriodicidadPersonalizada(e.target.value)}
+                  >
+                    <option value="mensual">Mensual</option>
+                    <option value="quincenal">Quincenal</option>
+                    <option value="semanal">Semanal</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label text-xs">N° de cuotas</label>
+                  <input
+                    type="number"
+                    className="input-field text-sm"
+                    placeholder="Ej: 10"
+                    value={cuotasPersonalizada}
+                    onChange={e => setCuotasPersonalizada(e.target.value)}
+                    min="1" max="120"
+                  />
+                </div>
+                <div>
+                  <label className="label text-xs">Tasa total (%)</label>
+                  <input
+                    type="number"
+                    className="input-field text-sm"
+                    placeholder="Ej: 30"
+                    value={tasaPersonalizada}
+                    onChange={e => setTasaPersonalizada(e.target.value)}
+                    min="0" step="0.1"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Cálculo automático */}
-        {importe && cantCuotas && (
+        {importe && cantCuotasEfectiva && (
           <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
             <div className="text-sm font-semibold text-gray-700 mb-3">Resumen del crédito</div>
             <div className="grid grid-cols-2 gap-3">
@@ -507,7 +614,7 @@ export default function NuevoCredito() {
         <div className="flex gap-3">
           <button
             onClick={guardarCredito}
-            disabled={!cantCuotas || !importe || !primerVenc || guardando}
+            disabled={!cantCuotasEfectiva || !importe || !primerVenc || guardando || (modoPersonalizado && (!cuotasPersonalizada || !tasaPersonalizada))}
             className="btn-primary flex-1 disabled:opacity-50"
           >
             {guardando ? 'Guardando...' : 'Crear Crédito'}
