@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { formatMoneda, formatFecha, hoyArgentina, diasEntre } from '../lib/formatters'
 import { calcularEstadoCredito } from '../lib/calculos'
+import { useAuth } from '../context/AuthContext'
 
 function StatCard({ title, value, sub, color, icon, onClick }) {
   return (
@@ -24,6 +25,7 @@ function StatCard({ title, value, sub, color, icon, onClick }) {
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const { isAdmin, userNombre } = useAuth()
   const [stats, setStats] = useState({
     totalActivos: 0,
     cobradoHoy: 0,
@@ -42,10 +44,18 @@ export default function Dashboard() {
   async function loadDashboard() {
     setLoading(true)
     try {
-      const { data: creditos } = await supabase
+      let creditosQuery = supabase
         .from('creditos')
         .select('*, clientes(nombre, apellido, codigo, id)')
         .in('estado', ['activo', 'atrasado', 'mora', 'incobrable'])
+
+      if (isAdmin) {
+        creditosQuery = creditosQuery.neq('vendedor', 'Carlos')
+      } else {
+        creditosQuery = creditosQuery.eq('vendedor', userNombre)
+      }
+
+      const { data: creditos } = await creditosQuery
 
       const creditoIds = (creditos || []).map(c => c.id)
       let cuotasPorCredito = {}

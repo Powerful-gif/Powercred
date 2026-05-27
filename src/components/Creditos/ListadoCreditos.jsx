@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { formatMoneda, formatFecha } from '../../lib/formatters'
+import { useAuth } from '../../context/AuthContext'
 
 const ESTADOS = ['todos', 'activo', 'atrasado', 'mora', 'incobrable', 'cancelado']
 const ESTADO_LABELS = {
@@ -21,6 +22,7 @@ const ESTADO_BADGE = {
 }
 
 export default function ListadoCreditos() {
+  const { isAdmin, userNombre } = useAuth()
   const [creditos, setCreditos] = useState([])
   const [loading, setLoading] = useState(true)
   const [busqueda, setBusqueda] = useState('')
@@ -34,10 +36,18 @@ export default function ListadoCreditos() {
 
   async function cargarCreditos() {
     setLoading(true)
-    const { data } = await supabase
+    let query = supabase
       .from('creditos')
       .select('*, clientes(nombre, apellido, codigo, dni)')
       .order('created_at', { ascending: false })
+
+    if (isAdmin) {
+      query = query.neq('vendedor', 'Carlos')
+    } else {
+      query = query.eq('vendedor', userNombre)
+    }
+
+    const { data } = await query
     setCreditos(data || [])
     setLoading(false)
   }
