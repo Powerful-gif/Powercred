@@ -5,6 +5,26 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
-    port: 5173
+    port: 5173,
+    proxy: {
+      '/api/bcra-deudas': {
+        target: 'https://api.bcra.gob.ar',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => {
+          const cuit = new URLSearchParams(path.split('?')[1]).get('cuit')
+          return `/CentralDeDeudores/v1.0/Deudas/${cuit}`
+        }
+      },
+      '/api/bcra-cheques': {
+        target: 'https://api.bcra.gob.ar',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => {
+          const cuit = new URLSearchParams(path.split('?')[1]).get('cuit')
+          return `/CentralDeDeudores/v1.0/ChequesRechazados/${cuit}`
+        }
+      }
+    }
   }
 })
