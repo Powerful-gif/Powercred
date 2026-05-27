@@ -22,6 +22,7 @@ export default function FichaCliente() {
   const [loading, setLoading] = useState(true)
   const [confirmIncobrable, setConfirmIncobrable] = useState(null)
   const [periPotencial, setPeriPotencial] = useState('mensual')
+  const [pagos, setPagos] = useState([])
 
   useEffect(() => {
     loadCliente()
@@ -35,8 +36,14 @@ export default function FichaCliente() {
       .select('*')
       .eq('cliente_id', id)
       .order('created_at', { ascending: false })
+    const { data: pagsData } = await supabase
+      .from('pagos')
+      .select('*')
+      .eq('cliente_id', id)
+      .order('fecha_pago')
     setCliente(cli)
     setCreditos(creds || [])
+    setPagos(pagsData || [])
     setLoading(false)
   }
 
@@ -67,6 +74,51 @@ export default function FichaCliente() {
 
   const creditosActivos = creditos.filter(c => ['activo', 'atrasado', 'mora'].includes(c.estado))
   const capacidad = calcularCapacidadDisponible(cliente.capacidad_pago_mensual, creditosActivos)
+
+  // Behavioral scoring
+  const scoring = (() => {
+    if (pagos.length < 3) return { insuficiente: true }
+
+    // 1. Puntualidad
+    const tieneAtrasoGrave = pagos.some(p => p.dias_atraso > 5)
+    const tieneAlgunAtraso = pagos.some(p => p.dias_atraso > 0)
+    const pPuntualidad = tieneAtrasoGrave ? -20 : tieneAlgunAtraso ? 15 : 30
+
+    // 2. Consistencia — racha de pagos consecutivos sin atraso (más recientes)
+    const pagosDesc = [...pagos].sort((a, b) => new Date(b.fecha_pago) - new Date(a.fecha_pago))
+    let racha = 0
+    for (const p of pagosDesc) {
+      if (p.dias_atraso === 0) racha++
+      else break
+    }
+    const pConsistencia = racha >= 12 ? 40 : racha >= 6 ? 25 : 0
+
+    // 3. Antigüedad
+    const diasCliente = (Date.now() - new Date(cliente.created_at).getTime()) / 86400000
+    const pAntiguedad = diasCliente > 365 ? 20 : diasCliente > 180 ? 10 : 0
+
+    // 4. Frecuencia
+    const pFrecuencia = creditos.length > 2 ? 15 : 0
+
+    // 5. Uso del crédito
+    const pSaldo = capacidad && capacidad.disponible > 0 ? 10 : 0
+    const pCuotas = creditos.some(c => c.cantidad_cuotas <= 6) ? 5 : 0
+    const pUso = pSaldo + pCuotas
+
+    const total = pPuntualidad + pConsistencia + pAntiguedad + pFrecuencia + pUso
+
+    // Recomendación
+    let recomendacion = null
+    if (cliente.capacidad_pago_mensual && total >= 70) {
+      const cap = cliente.capacidad_pago_mensual
+      const pct = total > 100 ? 0.425 : total >= 85 ? 0.275 : 0.175
+      const sugerida = Math.round(cap * (1 + pct) / 500) * 500
+      const rangoPct = total > 100 ? '35-50%' : total >= 85 ? '25-30%' : '15-20%'
+      recomendacion = { sugerida, rangoPct, nivel: total > 100 ? 'VIP' : total >= 85 ? 'Alto' : 'Medio' }
+    }
+
+    return { total, pPuntualidad, pConsistencia, pAntiguedad, pFrecuencia, pUso, racha, recomendacion, insuficiente: false }
+  })()
 
   const estadoGeneral = creditos.length === 0 ? 'activo' :
     creditos.some(c => c.estado === 'incobrable') ? 'incobrable' :
@@ -271,6 +323,106 @@ export default function FichaCliente() {
           </div>
         )}
       </div>
+
+      {/* Scoring de comportamiento */}
+      {pagos.length > 0 && (
+        <div className="card">
+          <div className="flex items-start justify-between mb-5">
+            <div>
+              <h3 className="font-semibold text-gray-900">Scoring de Comportamiento</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Análisis de historial de pagos · {pagos.length} pagos registrados</p>
+            </div>
+            {!scoring.insuficiente && (
+              <div className={`text-center px-4 py-2 rounded-xl ${
+                scoring.total > 100 ? 'bg-green-100 text-green-800' :
+                scoring.total >= 85 ? 'bg-blue-100 text-blue-800' :
+                scoring.total >= 70 ? 'bg-yellow-100 text-yellow-800' :
+                'bg-gray-100 text-gray-600'
+              }`}>
+                <div className="text-2xl font-bold">{scoring.total}</div>
+                <div className="text-xs font-medium">puntos</div>
+              </div>
+            )}
+          </div>
+
+          {scoring.insuficiente ? (
+            <p className="text-sm text-gray-400 text-center py-4">Historial insuficiente — se necesitan al menos 3 pagos para calcular el score.</p>
+          ) : (
+            <>
+              <div className="space-y-3 mb-5">
+                {[
+                  { label: 'Puntualidad', pts: scoring.pPuntualidad, max: 30,
+                    desc: scoring.pPuntualidad === 30 ? 'Siempre en fecha' : scoring.pPuntualidad === 15 ? 'Algún atraso leve (1-5 días)' : 'Atrasos graves (>5 días)' },
+                  { label: 'Consistencia', pts: scoring.pConsistencia, max: 40,
+                    desc: `Racha actual: ${scoring.racha} pagos consecutivos a tiempo` },
+                  { label: 'Antigüedad', pts: scoring.pAntiguedad, max: 20,
+                    desc: `${Math.floor((Date.now() - new Date(cliente.created_at).getTime()) / 86400000)} días como cliente` },
+                  { label: 'Frecuencia', pts: scoring.pFrecuencia, max: 15,
+                    desc: `${creditos.length} crédito${creditos.length !== 1 ? 's' : ''} en total` },
+                  { label: 'Uso del crédito', pts: scoring.pUso, max: 15,
+                    desc: `${capacidad && capacidad.disponible > 0 ? 'Tiene margen disponible' : 'Sin margen disponible'}` },
+                ].map(row => (
+                  <div key={row.label} className="flex items-center gap-3">
+                    <div className="w-28 text-xs text-gray-600 flex-shrink-0">{row.label}</div>
+                    <div className="flex-1 bg-gray-100 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all ${row.pts < 0 ? 'bg-red-400' : row.pts === row.max ? 'bg-green-500' : 'bg-blue-400'}`}
+                        style={{ width: `${Math.max(0, Math.min(100, (Math.max(0, row.pts) / row.max) * 100))}%` }}
+                      />
+                    </div>
+                    <div className={`text-xs font-bold w-8 text-right flex-shrink-0 ${row.pts < 0 ? 'text-red-600' : 'text-gray-700'}`}>
+                      {row.pts > 0 ? '+' : ''}{row.pts}
+                    </div>
+                    <div className="text-xs text-gray-400 w-48 flex-shrink-0 hidden sm:block">{row.desc}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Semáforo + recomendación */}
+              <div className={`rounded-xl p-4 border ${
+                scoring.total > 100 ? 'bg-green-50 border-green-200' :
+                scoring.total >= 85 ? 'bg-blue-50 border-blue-200' :
+                scoring.total >= 70 ? 'bg-yellow-50 border-yellow-200' :
+                'bg-gray-50 border-gray-200'
+              }`}>
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">
+                    {scoring.total > 100 ? '🟢' : scoring.total >= 70 ? '🟡' : '🔴'}
+                  </span>
+                  <div>
+                    {scoring.recomendacion ? (
+                      <>
+                        <div className="font-semibold text-sm text-gray-900">
+                          Recomendar aumento de capacidad ({scoring.recomendacion.rangoPct}) · Perfil {scoring.recomendacion.nivel}
+                        </div>
+                        {cliente.capacidad_pago_mensual ? (
+                          <div className="text-sm text-gray-600 mt-1">
+                            Capacidad actual: <strong>{formatMoneda(cliente.capacidad_pago_mensual)}/mes</strong>
+                            {' → '}
+                            Sugerida: <strong className="text-green-700">{formatMoneda(scoring.recomendacion.sugerida)}/mes</strong>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-500 mt-1">Cargá la capacidad de pago mensual del cliente para ver el monto sugerido.</div>
+                        )}
+                        <div className="text-xs text-gray-400 mt-1">Solo sugerencia — actualizá manualmente si estás de acuerdo.</div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="font-semibold text-sm text-gray-900">Mantener capacidad actual</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {scoring.total < 70
+                            ? `El cliente necesita mejorar su score (${scoring.total}/70 mínimo para considerar aumento).`
+                            : 'Sin historial suficiente en los últimos 90 días.'}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Modal confirmar incobrable */}
       {confirmIncobrable && (
