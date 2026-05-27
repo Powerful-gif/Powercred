@@ -5,7 +5,7 @@ import { formatMoneda, formatFecha, hoyArgentina, diasEntre } from '../lib/forma
 import { calcularEstadoCredito } from '../lib/calculos'
 import { useAuth } from '../context/AuthContext'
 
-function StatCard({ title, value, sub, color, icon, onClick }) {
+function StatCard({ title, value, sub, color, icon, onClick, detail }) {
   return (
     <div
       onClick={onClick}
@@ -14,10 +14,11 @@ function StatCard({ title, value, sub, color, icon, onClick }) {
       <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
         {icon}
       </div>
-      <div>
+      <div className="min-w-0 flex-1">
         <div className="text-2xl font-bold text-gray-900">{value}</div>
         <div className="text-sm font-medium text-gray-600">{title}</div>
         {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
+        {detail}
       </div>
     </div>
   )
@@ -29,6 +30,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState({
     totalActivos: 0,
     cobradoHoy: 0,
+    cobradoPorMetodo: { efectivo: 0, transferencia: 0, tarjeta: 0 },
     atrasados: [],
     enMora: [],
     proxVencimientos: [],
@@ -111,9 +113,14 @@ export default function Dashboard() {
       // Cobrado hoy
       const { data: pagosHoy } = await supabase
         .from('pagos')
-        .select('total_cobrado')
+        .select('total_cobrado, metodo_pago')
         .eq('fecha_pago', hoy)
       const cobradoHoy = (pagosHoy || []).reduce((s, p) => s + Number(p.total_cobrado), 0)
+      const cobradoPorMetodo = { efectivo: 0, transferencia: 0, tarjeta: 0 }
+      for (const p of (pagosHoy || [])) {
+        const m = p.metodo_pago || 'efectivo'
+        if (cobradoPorMetodo[m] !== undefined) cobradoPorMetodo[m] += Number(p.total_cobrado)
+      }
 
       // Próximos 3 días
       const fecha3 = new Date(hoy)
@@ -129,6 +136,7 @@ export default function Dashboard() {
       setStats({
         totalActivos: cartera.activo + cartera.atrasado + cartera.mora,
         cobradoHoy,
+        cobradoPorMetodo,
         atrasados,
         enMora: enMoraCreditos,
         proxVencimientos: proxVenc || [],
@@ -147,7 +155,7 @@ export default function Dashboard() {
     </div>
   )
 
-  const { totalActivos, cobradoHoy, atrasados, enMora, proxVencimientos, cartera } = stats
+  const { totalActivos, cobradoHoy, cobradoPorMetodo, atrasados, enMora, proxVencimientos, cartera } = stats
 
   return (
     <div className="space-y-6">
@@ -166,6 +174,19 @@ export default function Dashboard() {
           value={formatMoneda(cobradoHoy)}
           color="bg-green-100 text-green-700"
           icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>}
+          detail={cobradoHoy > 0 && (
+            <div className="mt-2 space-y-0.5">
+              {cobradoPorMetodo.efectivo > 0 && (
+                <div className="text-xs text-gray-500">💵 Efectivo: <span className="font-medium text-gray-700">{formatMoneda(cobradoPorMetodo.efectivo)}</span></div>
+              )}
+              {cobradoPorMetodo.transferencia > 0 && (
+                <div className="text-xs text-gray-500">🏦 Transferencia: <span className="font-medium text-gray-700">{formatMoneda(cobradoPorMetodo.transferencia)}</span></div>
+              )}
+              {cobradoPorMetodo.tarjeta > 0 && (
+                <div className="text-xs text-gray-500">💳 Tarjeta: <span className="font-medium text-gray-700">{formatMoneda(cobradoPorMetodo.tarjeta)}</span></div>
+              )}
+            </div>
+          )}
         />
         <StatCard
           title="Atrasados"
