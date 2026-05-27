@@ -46,7 +46,7 @@ export default function Dashboard() {
     try {
       let creditosQuery = supabase
         .from('creditos')
-        .select('*, clientes(nombre, apellido, codigo, id, telefono)')
+        .select('*, clientes(nombre, apellido, codigo, id, celular)')
         .in('estado', ['activo', 'atrasado', 'mora', 'incobrable'])
 
       if (!isAdmin && userNombre) {
@@ -283,9 +283,9 @@ export default function Dashboard() {
                     <td className="py-2 text-right font-semibold">{formatMoneda(c.importe_cuota)}</td>
                     <td className="py-2 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {c.clientes?.telefono && (
+                        {c.clientes?.celular && (
                           <a
-                            href={`https://wa.me/549${c.clientes.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${c.clientes.nombre}, te recordamos que tenés una cuota vencida de ${formatMoneda(c.importe_cuota)} del crédito ${c.numero_credito} (${c.diasAtraso} días de atraso). Comunicate con nosotros para regularizar. ¡Gracias!`)}`}
+                            href={`https://wa.me/549${c.clientes.celular.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${c.clientes.nombre}, te recordamos que tenés una cuota vencida de ${formatMoneda(c.importe_cuota)} del crédito ${c.numero_credito} (${c.diasAtraso} días de atraso). Comunicate con nosotros para regularizar. ¡Gracias!`)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-xs font-medium px-2 py-1 rounded-lg transition-colors"
