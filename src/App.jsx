@@ -11,6 +11,7 @@ import Creditos from './pages/Creditos'
 import NuevoCredito from './components/Creditos/NuevoCredito'
 import DetalleCredito from './components/Creditos/DetalleCredito'
 import Cobros from './pages/Cobros'
+import Consulta from './pages/Consulta'
 import Reportes from './pages/Reportes'
 import Configuracion from './pages/Configuracion'
 
@@ -45,6 +46,7 @@ function AppRoutes() {
         <Route path="creditos/nuevo" element={<NuevoCredito />} />
         <Route path="creditos/:id" element={<DetalleCredito />} />
         <Route path="cobros" element={<Cobros />} />
+        <Route path="consulta" element={<Consulta />} />
         <Route path="reportes" element={<Reportes />} />
         <Route path="configuracion" element={<Configuracion />} />
       </Route>

@@ -8,6 +8,7 @@ const PAGE_TITLES = {
   '/creditos': 'Créditos',
   '/creditos/nuevo': 'Nuevo Crédito',
   '/cobros': 'Cobros',
+  '/consulta': 'Consulta de Precios',
   '/reportes': 'Reportes',
   '/configuracion': 'Configuración',
 }
