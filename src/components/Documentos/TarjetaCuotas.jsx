@@ -99,7 +99,6 @@ export default function TarjetaCuotasDoc({ credito, cliente, cuotas, config }) {
         <thead>
           <tr style={{ background: '#f0f0f0', borderBottom: '1px solid #000' }}>
             <th style={{ textAlign: 'left', padding: '1mm' }}>ARTÍCULO</th>
-            <th style={{ textAlign: 'right', padding: '1mm' }}>IMPORTE</th>
             <th style={{ textAlign: 'right', padding: '1mm' }}>CUOTA</th>
             <th style={{ textAlign: 'center', padding: '1mm' }}>CUOTAS</th>
             <th style={{ textAlign: 'left', padding: '1mm' }}>1° VENC.</th>
@@ -110,9 +109,8 @@ export default function TarjetaCuotasDoc({ credito, cliente, cuotas, config }) {
             <td style={{ padding: '1mm' }}>
               {credito.observaciones || (credito.tipo === 'hogar' ? 'Crédito del Hogar' : 'Préstamo en Efectivo')}
             </td>
-            <td style={{ padding: '1mm', textAlign: 'right' }}>{formatMoneda(credito.importe_original)}</td>
             <td style={{ padding: '1mm', textAlign: 'right' }}><strong>{formatMoneda(credito.importe_cuota)}</strong></td>
-            <td style={{ padding: '1mm', textAlign: 'center' }}>{credito.cantidad_cuotas} {credito.periodicidad === 'mensual' ? 'Men.' : 'Sem.'}</td>
+            <td style={{ padding: '1mm', textAlign: 'center' }}>{credito.cantidad_cuotas} {credito.periodicidad === 'mensual' ? 'Men.' : credito.periodicidad === 'quincenal' ? 'Quin.' : 'Sem.'}</td>
             <td style={{ padding: '1mm' }}>{formatFecha(credito.fecha_primer_vencimiento)}</td>
           </tr>
         </tbody>
