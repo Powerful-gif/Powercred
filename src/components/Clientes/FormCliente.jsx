@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../context/AuthContext'
 
 const PROVINCIAS = [
   'Buenos Aires', 'CABA', 'Catamarca', 'Chaco', 'Chubut', 'Córdoba',
@@ -19,6 +20,7 @@ const EMPTY_FORM = {
 export default function FormCliente() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { isAdmin, userNombre } = useAuth()
   const isEdit = !!id
   const [form, setForm] = useState(EMPTY_FORM)
   const [loading, setLoading] = useState(false)
@@ -96,7 +98,8 @@ export default function FormCliente() {
     const payload = {
       ...form,
       codigo: codigoGen,
-      capacidad_pago_mensual: form.capacidad_pago_mensual !== '' ? Number(form.capacidad_pago_mensual) : null
+      capacidad_pago_mensual: form.capacidad_pago_mensual !== '' ? Number(form.capacidad_pago_mensual) : null,
+      ...(!isEdit && { propietario: isAdmin ? 'admin' : userNombre })
     }
 
     let error_db

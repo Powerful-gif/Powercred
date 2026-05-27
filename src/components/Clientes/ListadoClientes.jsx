@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { formatFecha } from '../../lib/formatters'
+import { useAuth } from '../../context/AuthContext'
 
 function EstadoBadge({ estado }) {
   const map = {
@@ -24,6 +25,7 @@ function EstadoBadge({ estado }) {
 }
 
 export default function ListadoClientes() {
+  const { isAdmin, userNombre } = useAuth()
   const [clientes, setClientes] = useState([])
   const [loading, setLoading] = useState(true)
   const [busqueda, setBusqueda] = useState('')
@@ -37,13 +39,18 @@ export default function ListadoClientes() {
   async function cargarClientes() {
     setLoading(true)
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('clientes')
-        .select(`
-          *,
-          creditos(id, estado, importe_cuota, periodicidad)
-        `)
+        .select(`*, creditos(id, estado, importe_cuota, periodicidad)`)
         .order('created_at', { ascending: false })
+
+      if (isAdmin) {
+        query = query.neq('propietario', 'Carlos')
+      } else {
+        query = query.eq('propietario', userNombre)
+      }
+
+      const { data, error } = await query
 
       if (error) throw error
       setClientes(data || [])

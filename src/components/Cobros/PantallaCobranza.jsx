@@ -4,12 +4,14 @@ import { supabase } from '../../lib/supabase'
 import { formatMoneda, formatFecha, hoyArgentina } from '../../lib/formatters'
 import { calcularMora, calcularEstadoCredito } from '../../lib/calculos'
 import { useConfig } from '../../context/ConfigContext'
+import { useAuth } from '../../context/AuthContext'
 import TarjetaCuota from './TarjetaCuota'
 import Recibo from '../Documentos/Recibo'
 
 export default function PantallaCobranza() {
   const [searchParams] = useSearchParams()
   const { config } = useConfig()
+  const { isAdmin, userNombre } = useAuth()
   const [busqueda, setBusqueda] = useState('')
   const [clienteEncontrado, setClienteEncontrado] = useState(null)
   const [creditosConCuotas, setCreditosConCuotas] = useState([])
@@ -43,11 +45,19 @@ export default function PantallaCobranza() {
     if (!busqueda.trim()) return
     setLoading(true)
     const q = busqueda.trim()
-    const { data } = await supabase
+    let clienteQuery = supabase
       .from('clientes')
       .select('*')
       .or(`dni.eq.${q},codigo.ilike.${q},nombre.ilike.%${q}%,apellido.ilike.%${q}%`)
       .limit(5)
+
+    if (isAdmin) {
+      clienteQuery = clienteQuery.neq('propietario', 'Carlos')
+    } else {
+      clienteQuery = clienteQuery.eq('propietario', userNombre)
+    }
+
+    const { data } = await clienteQuery
     setLoading(false)
     if (!data || data.length === 0) {
       setBusquedaError('Cliente no encontrado')
