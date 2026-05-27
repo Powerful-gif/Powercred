@@ -153,10 +153,16 @@ export default function ListadoClientes() {
                       <EstadoBadge estado={estado} />
                     </td>
                     <td className="py-3 px-2 text-right">
-                      <Link to={`/clientes/${cliente.id}`}
-                        className="text-blue-600 hover:underline text-xs font-medium">
-                        Ver detalle →
-                      </Link>
+                      <div className="flex items-center justify-end gap-3">
+                        <Link to={`/creditos/nuevo?cliente=${cliente.id}`}
+                          className="text-orange-600 hover:underline text-xs font-medium">
+                          + Crédito
+                        </Link>
+                        <Link to={`/clientes/${cliente.id}`}
+                          className="text-blue-600 hover:underline text-xs font-medium">
+                          Ver detalle →
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 )
