@@ -42,7 +42,7 @@ export default function ListadoCreditos() {
       .order('created_at', { ascending: false })
 
     if (isAdmin) {
-      query = query.neq('vendedor', 'Carlos')
+      query = query.or('vendedor.neq.Carlos,vendedor.is.null')
     } else {
       query = query.eq('vendedor', userNombre)
     }

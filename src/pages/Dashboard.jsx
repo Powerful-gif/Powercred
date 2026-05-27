@@ -50,7 +50,7 @@ export default function Dashboard() {
         .in('estado', ['activo', 'atrasado', 'mora', 'incobrable'])
 
       if (isAdmin) {
-        creditosQuery = creditosQuery.neq('vendedor', 'Carlos')
+        creditosQuery = creditosQuery.or('vendedor.neq.Carlos,vendedor.is.null')
       } else {
         creditosQuery = creditosQuery.eq('vendedor', userNombre)
       }
