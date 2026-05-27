@@ -49,13 +49,14 @@ export default function Dashboard() {
         .select('*, clientes(nombre, apellido, codigo, id, telefono)')
         .in('estado', ['activo', 'atrasado', 'mora', 'incobrable'])
 
-      if (isAdmin) {
-        creditosQuery = creditosQuery.or('vendedor.neq.Carlos,vendedor.is.null')
-      } else {
+      if (!isAdmin) {
         creditosQuery = creditosQuery.eq('vendedor', userNombre)
       }
 
-      const { data: creditos } = await creditosQuery
+      const { data: todosCreditos } = await creditosQuery
+      const creditos = isAdmin
+        ? (todosCreditos || []).filter(c => c.vendedor !== 'Carlos')
+        : (todosCreditos || [])
 
       const creditoIds = (creditos || []).map(c => c.id)
       let cuotasPorCredito = {}

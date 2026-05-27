@@ -41,14 +41,15 @@ export default function ListadoCreditos() {
       .select('*, clientes(nombre, apellido, codigo, dni)')
       .order('created_at', { ascending: false })
 
-    if (isAdmin) {
-      query = query.or('vendedor.neq.Carlos,vendedor.is.null')
-    } else {
+    if (!isAdmin) {
       query = query.eq('vendedor', userNombre)
     }
 
     const { data } = await query
-    setCreditos(data || [])
+    const filtrados = isAdmin
+      ? (data || []).filter(c => c.vendedor !== 'Carlos')
+      : (data || [])
+    setCreditos(filtrados)
     setLoading(false)
   }
 
