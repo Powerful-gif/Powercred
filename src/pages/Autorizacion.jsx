@@ -73,6 +73,14 @@ function calcularRecomendacion(bcraData, chequesData, ingresos, empleo) {
 }
 
 export default function Autorizacion() {
+  return (
+    <div className="max-w-xl mx-auto mt-20 text-center space-y-4">
+      <div className="text-5xl">🔒</div>
+      <h2 className="text-2xl font-bold text-gray-800">Próximamente</h2>
+      <p className="text-gray-500">Esta función estará disponible muy pronto.</p>
+    </div>
+  )
+  // eslint-disable-next-line no-unreachable
   const [dni, setDni] = useState('')
   const [sexo, setSexo] = useState('M')
   const [ingresos, setIngresos] = useState('')
@@ -100,19 +108,33 @@ export default function Autorizacion() {
     try {
       const { data: cliente } = await supabase.from('clientes').select('*').eq('dni', dni).single()
       setClienteExistente(cliente || null)
+    } catch (e) { /* ignorar error de cliente */ }
 
-      const [deudaRes, chequesRes] = await Promise.all([
-        fetch(`/api/bcra-deudas?cuit=${cuit}`),
-        fetch(`/api/bcra-cheques?cuit=${cuit}`)
-      ])
-
-      const deuda = await deudaRes.json()
-      const cheques = await chequesRes.json()
-
-      setBcraData(deuda.status === 200 ? deuda : { results: { denominacion: '', periodos: [] } })
-      setChequesData(cheques.status === 200 ? cheques : { results: { causales: [] } })
+    // Consulta deudas
+    try {
+      const res = await fetch(`/api/bcra-deudas?cuit=${cuit}`)
+      try {
+        const data = await res.json()
+        setBcraData(res.ok && data.status === 200 ? data : { results: { denominacion: '', periodos: [] } })
+      } catch {
+        setBcraData({ results: { denominacion: '', periodos: [] } })
+      }
     } catch (e) {
-      setError('Error consultando el BCRA. Verificá tu conexión.')
+      setError('No se pudo contactar el BCRA. Verificá tu conexión.')
+      setBcraData({ results: { denominacion: '', periodos: [] } })
+    }
+
+    // Consulta cheques (independiente, no bloquea)
+    try {
+      const res = await fetch(`/api/bcra-cheques?cuit=${cuit}`)
+      try {
+        const data = await res.json()
+        setChequesData(res.ok && data.status === 200 ? data : { results: { causales: [] } })
+      } catch {
+        setChequesData({ results: { causales: [] } })
+      }
+    } catch (e) {
+      setChequesData({ results: { causales: [] } })
     }
 
     setConsultando(false)
