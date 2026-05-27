@@ -90,6 +90,32 @@ export default function Consulta() {
                   </table>
                 </div>
               ))}
+            {abiertos.tarjeta && (
+              <div style={{ marginBottom: '18px' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '6px' }}>Tarjeta de Crédito</div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ background: '#eee' }}>
+                      <th style={{ padding: '7px 10px', textAlign: 'left', border: '1px solid #ddd' }}>Cuotas</th>
+                      <th style={{ padding: '7px 10px', textAlign: 'center', border: '1px solid #ddd' }}>Valor cuota</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(TASAS_TARJETA).map(([n, tasa]) => {
+                      const { cuota } = calcularCuota(aFinanciar, tasa, Number(n))
+                      return (
+                        <tr key={n}>
+                          <td style={{ padding: '7px 10px', border: '1px solid #ddd', fontWeight: 'bold' }}>{n} cuotas</td>
+                          <td style={{ padding: '7px 10px', border: '1px solid #ddd', textAlign: 'center', fontWeight: 'bold', fontSize: '15px' }}>
+                            {formatMoneda(cuota)}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -242,7 +268,7 @@ export default function Consulta() {
 
       {/* Tarjeta de crédito */}
       {hayImporte && (
-        <div className="card p-0 overflow-hidden no-print">
+        <div className="card p-0 overflow-hidden">
           <button
             onClick={() => setAbiertos(prev => ({ ...prev, tarjeta: !prev.tarjeta }))}
             className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors"
