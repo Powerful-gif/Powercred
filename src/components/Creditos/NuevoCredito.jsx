@@ -99,14 +99,20 @@ export default function NuevoCredito() {
   const periodicidadEfectiva = modoPersonalizado ? periodicidadPersonalizada : periodicidad
   const cantCuotasEfectiva = modoPersonalizado ? (parseInt(cuotasPersonalizada) || null) : cantCuotas
 
+  function getTasaColchones(n, peri) {
+    if (n <= 6) return 0
+    if (peri === 'mensual') return n === 9 ? 18 : n === 12 ? 24 : getTasa(tipo, peri, n)
+    return getTasa(tipo, peri, n)
+  }
+
   function getTasaBoton(n) {
-    if (tipo === 'hogar' && rubro === 'colchones_sillones' && periodicidad === 'mensual' && (n === 3 || n === 6)) return 0
+    if (tipo === 'hogar' && rubro === 'colchones_sillones') return getTasaColchones(n, periodicidad)
     return getTasa(tipo, periodicidad, n)
   }
 
   function getTasaEfectiva() {
     if (modoPersonalizado) return parseFloat(tasaPersonalizada) || 0
-    if (tipo === 'hogar' && rubro === 'colchones_sillones' && periodicidadEfectiva === 'mensual' && (cantCuotasEfectiva === 3 || cantCuotasEfectiva === 6)) return 0
+    if (tipo === 'hogar' && rubro === 'colchones_sillones') return getTasaColchones(cantCuotasEfectiva, periodicidadEfectiva)
     return getTasa(tipo, periodicidadEfectiva, cantCuotasEfectiva)
   }
 
