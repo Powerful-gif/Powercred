@@ -41,8 +41,8 @@ export default function ListadoCreditos() {
       .select('*, clientes(nombre, apellido, codigo, dni)')
       .order('created_at', { ascending: false })
 
-    if (!isAdmin) {
-      query = query.eq('vendedor', userNombre)
+    if (!isAdmin && userNombre) {
+      query = query.or(`vendedor.eq.${userNombre},vendedor.is.null`)
     }
 
     const { data } = await query

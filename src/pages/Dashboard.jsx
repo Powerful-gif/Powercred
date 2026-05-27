@@ -49,8 +49,8 @@ export default function Dashboard() {
         .select('*, clientes(nombre, apellido, codigo, id, telefono)')
         .in('estado', ['activo', 'atrasado', 'mora', 'incobrable'])
 
-      if (!isAdmin) {
-        creditosQuery = creditosQuery.eq('vendedor', userNombre)
+      if (!isAdmin && userNombre) {
+        creditosQuery = creditosQuery.or(`vendedor.eq.${userNombre},vendedor.is.null`)
       }
 
       const { data: creditos } = await creditosQuery
