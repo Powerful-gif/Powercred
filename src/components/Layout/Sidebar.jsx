@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useConfig } from '../../context/ConfigContext'
+import { useAuth } from '../../context/AuthContext'
 
 const navItems = [
   {
@@ -67,6 +68,7 @@ const navItems = [
 
 export default function Sidebar() {
   const { config } = useConfig()
+  const { signOut, userNombre, isAdmin } = useAuth()
 
   return (
     <aside className="sidebar w-60 bg-gray-900 text-white flex flex-col flex-shrink-0 no-print">
@@ -102,10 +104,26 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Footer */}
-      <div className="px-6 py-4 border-t border-gray-700 text-gray-500 text-xs">
-        <div>{config.negocio.localidad}, {config.negocio.provincia}</div>
-        <div className="mt-1">v1.0 · POWERCRED</div>
+      {/* Footer / Usuario */}
+      <div className="px-4 py-4 border-t border-gray-700">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-8 h-8 rounded-full bg-orange-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+            {userNombre ? userNombre[0].toUpperCase() : '?'}
+          </div>
+          <div className="min-w-0">
+            <div className="text-white text-xs font-medium truncate">{userNombre || 'Usuario'}</div>
+            <div className="text-gray-500 text-xs">{isAdmin ? 'Administrador' : 'Vendedor'}</div>
+          </div>
+        </div>
+        <button
+          onClick={signOut}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white text-xs transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Cerrar sesión
+        </button>
       </div>
     </aside>
   )
