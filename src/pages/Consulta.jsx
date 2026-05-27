@@ -15,7 +15,9 @@ export default function Consulta() {
   const [modoEntrega, setModoEntrega] = useState('0')
   const [pctCustom, setPctCustom] = useState('')
   const [rubro, setRubro] = useState('general')
-  const [abiertos, setAbiertos] = useState({ mensual: true, quincenal: false, semanal: false })
+  const [abiertos, setAbiertos] = useState({ mensual: true, quincenal: false, semanal: false, tarjeta: false })
+
+  const TASAS_TARJETA = { 3: 0, 6: 0, 9: 15, 12: 20 }
 
   const pct = modoEntrega === 'custom' ? null : parseFloat(modoEntrega)
   const precioNum = parseFloat(precio) || 0
@@ -237,6 +239,61 @@ export default function Consulta() {
           )}
         </div>
       ))}
+
+      {/* Tarjeta de crédito */}
+      {hayImporte && (
+        <div className="card p-0 overflow-hidden no-print">
+          <button
+            onClick={() => setAbiertos(prev => ({ ...prev, tarjeta: !prev.tarjeta }))}
+            className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+              <span className="font-bold text-gray-800">Tarjeta de Crédito</span>
+              <span className="text-xs text-gray-400 font-normal">solo consulta</span>
+            </div>
+            <svg
+              className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${abiertos.tarjeta ? 'rotate-180' : ''}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {abiertos.tarjeta && (
+            <div className="border-t border-gray-100">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="text-left py-2 px-5 text-gray-500 font-medium">Cuotas</th>
+                    <th className="text-center py-2 px-3 text-gray-500 font-medium">Tasa</th>
+                    <th className="text-center py-2 px-5 text-gray-500 font-medium">Valor por cuota</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(TASAS_TARJETA).map(([n, tasa]) => {
+                    const { cuota } = calcularCuota(aFinanciar, tasa, Number(n))
+                    return (
+                      <tr key={n} className="border-b border-gray-50 hover:bg-blue-50 transition-colors">
+                        <td className="py-3 px-5 font-bold text-gray-700">{n} cuotas</td>
+                        <td className="py-3 px-3 text-center">
+                          {tasa === 0
+                            ? <span className="text-green-600 font-semibold text-xs">sin interés</span>
+                            : <span className="text-gray-400 text-xs">{tasa}%</span>
+                          }
+                        </td>
+                        <td className="py-3 px-5 text-center font-bold text-gray-900 text-lg">{formatMoneda(cuota)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Imprimir */}
       {hayImporte && (
