@@ -1,0 +1,348 @@
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
+import { formatMoneda, formatFecha, hoyArgentina, diasEntre } from '../lib/formatters'
+import { calcularEstadoCredito } from '../lib/calculos'
+
+function StatCard({ title, value, sub, color, icon, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      className={`bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex items-start gap-4 ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+    >
+      <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
+        {icon}
+      </div>
+      <div>
+        <div className="text-2xl font-bold text-gray-900">{value}</div>
+        <div className="text-sm font-medium text-gray-600">{title}</div>
+        {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
+      </div>
+    </div>
+  )
+}
+
+export default function Dashboard() {
+  const navigate = useNavigate()
+  const [stats, setStats] = useState({
+    totalActivos: 0,
+    cobradoHoy: 0,
+    atrasados: [],
+    enMora: [],
+    proxVencimientos: [],
+    cartera: { activo: 0, atrasado: 0, mora: 0, incobrable: 0, cancelado: 0 }
+  })
+  const [loading, setLoading] = useState(true)
+  const hoy = hoyArgentina()
+
+  useEffect(() => {
+    loadDashboard()
+  }, [])
+
+  async function loadDashboard() {
+    setLoading(true)
+    try {
+      const { data: creditos } = await supabase
+        .from('creditos')
+        .select('*, clientes(nombre, apellido, codigo, id)')
+        .in('estado', ['activo', 'atrasado', 'mora', 'incobrable'])
+
+      const creditoIds = (creditos || []).map(c => c.id)
+      let cuotasPorCredito = {}
+      if (creditoIds.length > 0) {
+        const { data: todasCuotas } = await supabase
+          .from('cuotas')
+          .select('*')
+          .in('credito_id', creditoIds)
+        ;(todasCuotas || []).forEach(c => {
+          if (!cuotasPorCredito[c.credito_id]) cuotasPorCredito[c.credito_id] = []
+          cuotasPorCredito[c.credito_id].push(c)
+        })
+      }
+
+      // Recalcular estados
+      const estadosActualizados = {}
+      for (const cred of (creditos || [])) {
+        const cuotas = cuotasPorCredito[cred.id] || []
+        estadosActualizados[cred.id] = calcularEstadoCredito(cuotas, cred.estado)
+      }
+
+      // Cartera
+      const cartera = { activo: 0, atrasado: 0, mora: 0, incobrable: 0, cancelado: 0 }
+      for (const [, estado] of Object.entries(estadosActualizados)) {
+        if (cartera[estado] !== undefined) cartera[estado]++
+      }
+
+      // Créditos atrasados (1-30 días) con máximo días de atraso
+      const atrasados = (creditos || [])
+        .filter(c => estadosActualizados[c.id] === 'atrasado')
+        .map(c => {
+          const cuotas = cuotasPorCredito[c.id] || []
+          const vencidas = cuotas.filter(q => q.estado !== 'pagada' && q.fecha_vencimiento < hoy)
+          const maxDias = vencidas.length > 0
+            ? Math.max(...vencidas.map(q => diasEntre(q.fecha_vencimiento, hoy)))
+            : 0
+          const cuotasVencidas = vencidas.length
+          return { ...c, diasAtraso: maxDias, cuotasVencidas }
+        })
+        .sort((a, b) => b.diasAtraso - a.diasAtraso)
+
+      // Créditos en mora (30+ días)
+      const enMoraCreditos = (creditos || [])
+        .filter(c => estadosActualizados[c.id] === 'mora')
+        .map(c => {
+          const cuotas = cuotasPorCredito[c.id] || []
+          const vencidas = cuotas.filter(q => q.estado !== 'pagada' && q.fecha_vencimiento < hoy)
+          const maxDias = vencidas.length > 0
+            ? Math.max(...vencidas.map(q => diasEntre(q.fecha_vencimiento, hoy)))
+            : 0
+          return { ...c, diasAtraso: maxDias, cuotasVencidas: vencidas.length }
+        })
+        .sort((a, b) => b.diasAtraso - a.diasAtraso)
+
+      // Cobrado hoy
+      const { data: pagosHoy } = await supabase
+        .from('pagos')
+        .select('total_cobrado')
+        .eq('fecha_pago', hoy)
+      const cobradoHoy = (pagosHoy || []).reduce((s, p) => s + Number(p.total_cobrado), 0)
+
+      // Próximos 3 días
+      const fecha3 = new Date(hoy)
+      fecha3.setDate(fecha3.getDate() + 3)
+      const fecha3Str = fecha3.toISOString().split('T')[0]
+      const { data: proxVenc } = await supabase
+        .from('cuotas')
+        .select('*, creditos(numero_credito, clientes(nombre, apellido))')
+        .gt('fecha_vencimiento', hoy)
+        .lte('fecha_vencimiento', fecha3Str)
+        .in('estado', ['pendiente'])
+
+      setStats({
+        totalActivos: cartera.activo + cartera.atrasado + cartera.mora,
+        cobradoHoy,
+        atrasados,
+        enMora: enMoraCreditos,
+        proxVencimientos: proxVenc || [],
+        cartera
+      })
+    } catch (e) {
+      console.error('Error cargando dashboard', e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="text-gray-500">Cargando dashboard...</div>
+    </div>
+  )
+
+  const { totalActivos, cobradoHoy, atrasados, enMora, proxVencimientos, cartera } = stats
+
+  return (
+    <div className="space-y-6">
+      {/* Stats */}
+      <div className="grid grid-cols-4 gap-4">
+        <StatCard
+          title="Créditos activos"
+          value={totalActivos}
+          sub="activos + atrasados + mora"
+          color="bg-blue-100 text-blue-700"
+          icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>}
+          onClick={() => navigate('/creditos')}
+        />
+        <StatCard
+          title="Cobrado hoy"
+          value={formatMoneda(cobradoHoy)}
+          color="bg-green-100 text-green-700"
+          icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>}
+        />
+        <StatCard
+          title="Atrasados"
+          value={atrasados.length}
+          sub="1 a 30 días de atraso"
+          color="bg-orange-100 text-orange-700"
+          icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>}
+          onClick={() => navigate('/creditos?estado=atrasado')}
+        />
+        <StatCard
+          title="En mora"
+          value={enMora.length}
+          sub="+30 días de atraso"
+          color="bg-red-100 text-red-700"
+          icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>}
+          onClick={() => navigate('/creditos?estado=mora')}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-6">
+        {/* Resumen cartera */}
+        <div className="card">
+          <h2 className="text-base font-semibold text-gray-900 mb-4">Resumen de Cartera</h2>
+          <div className="space-y-3">
+            {[
+              { label: 'Al día', key: 'activo', color: 'bg-green-500' },
+              { label: 'Atrasado', key: 'atrasado', color: 'bg-orange-400' },
+              { label: 'En mora', key: 'mora', color: 'bg-red-500' },
+              { label: 'Incobrable', key: 'incobrable', color: 'bg-gray-400' },
+              { label: 'Cancelado', key: 'cancelado', color: 'bg-blue-400' },
+            ].map(item => {
+              const total = Object.values(cartera).reduce((a, b) => a + b, 0) || 1
+              const pct = Math.round((cartera[item.key] / total) * 100)
+              return (
+                <div key={item.key}>
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span className="text-gray-600">{item.label}</span>
+                    <span className="font-semibold">{cartera[item.key]} ({pct}%)</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-2">
+                    <div className={`${item.color} h-2 rounded-full`} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Próximos vencimientos */}
+        <div className="card">
+          <h2 className="text-base font-semibold text-gray-900 mb-4">Próximos 3 días</h2>
+          {proxVencimientos.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">Sin vencimientos próximos</p>
+          ) : (
+            <div className="space-y-2">
+              {proxVencimientos.map(c => (
+                <div key={c.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                  <div>
+                    <div className="text-sm font-medium">
+                      {c.creditos?.clientes?.nombre} {c.creditos?.clientes?.apellido}
+                    </div>
+                    <div className="text-xs text-gray-400">{c.creditos?.numero_credito}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-semibold text-orange-600">{formatMoneda(c.importe_original)}</div>
+                    <div className="text-xs text-gray-400">{formatFecha(c.fecha_vencimiento)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Créditos Atrasados */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base font-semibold text-gray-900">
+            Créditos Atrasados
+            <span className="ml-2 text-xs font-normal text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
+              1-30 días
+            </span>
+          </h2>
+          <Link to="/creditos?estado=atrasado" className="text-sm text-orange-600 hover:underline">Ver en créditos →</Link>
+        </div>
+        {atrasados.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-6">No hay créditos atrasados</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-2 text-gray-500 font-medium">Cliente</th>
+                  <th className="text-left py-2 text-gray-500 font-medium">Crédito</th>
+                  <th className="text-center py-2 text-gray-500 font-medium">Cuotas vencidas</th>
+                  <th className="text-center py-2 text-gray-500 font-medium">Días de atraso</th>
+                  <th className="text-right py-2 text-gray-500 font-medium">Cuota</th>
+                  <th className="text-right py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {atrasados.map(c => (
+                  <tr key={c.id} className="border-b border-gray-100 hover:bg-orange-50">
+                    <td className="py-2 font-medium">
+                      {c.clientes?.apellido}, {c.clientes?.nombre}
+                      <div className="text-xs text-gray-400">{c.clientes?.codigo}</div>
+                    </td>
+                    <td className="py-2 text-gray-500 font-mono text-xs">{c.numero_credito}</td>
+                    <td className="py-2 text-center">
+                      <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-xs font-medium">
+                        {c.cuotasVencidas}
+                      </span>
+                    </td>
+                    <td className="py-2 text-center font-semibold text-orange-600">{c.diasAtraso} días</td>
+                    <td className="py-2 text-right font-semibold">{formatMoneda(c.importe_cuota)}</td>
+                    <td className="py-2 text-right">
+                      <Link
+                        to={`/cobros?cliente=${c.clientes?.id}`}
+                        className="text-orange-600 hover:underline text-xs font-medium"
+                      >
+                        Cobrar →
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Créditos en Mora */}
+      {enMora.length > 0 && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold text-gray-900">
+              Créditos en Mora
+              <span className="ml-2 text-xs font-normal text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                +30 días
+              </span>
+            </h2>
+            <Link to="/creditos?estado=mora" className="text-sm text-red-600 hover:underline">Ver en créditos →</Link>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-2 text-gray-500 font-medium">Cliente</th>
+                  <th className="text-left py-2 text-gray-500 font-medium">Crédito</th>
+                  <th className="text-center py-2 text-gray-500 font-medium">Cuotas vencidas</th>
+                  <th className="text-center py-2 text-gray-500 font-medium">Días de atraso</th>
+                  <th className="text-right py-2 text-gray-500 font-medium">Cuota</th>
+                  <th className="text-right py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {enMora.map(c => (
+                  <tr key={c.id} className="border-b border-gray-100 hover:bg-red-50">
+                    <td className="py-2 font-medium">
+                      {c.clientes?.apellido}, {c.clientes?.nombre}
+                      <div className="text-xs text-gray-400">{c.clientes?.codigo}</div>
+                    </td>
+                    <td className="py-2 text-gray-500 font-mono text-xs">{c.numero_credito}</td>
+                    <td className="py-2 text-center">
+                      <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs font-medium">
+                        {c.cuotasVencidas}
+                      </span>
+                    </td>
+                    <td className="py-2 text-center font-semibold text-red-600">{c.diasAtraso} días</td>
+                    <td className="py-2 text-right font-semibold">{formatMoneda(c.importe_cuota)}</td>
+                    <td className="py-2 text-right">
+                      <Link
+                        to={`/cobros?cliente=${c.clientes?.id}`}
+                        className="text-red-600 hover:underline text-xs font-medium"
+                      >
+                        Cobrar →
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

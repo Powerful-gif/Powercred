@@ -1,0 +1,251 @@
+import { useState, useEffect } from 'react'
+import { useSearchParams, Link } from 'react-router-dom'
+import { supabase } from '../../lib/supabase'
+import { formatMoneda, formatFecha, hoyArgentina } from '../../lib/formatters'
+import { calcularMora, calcularEstadoCredito } from '../../lib/calculos'
+import { useConfig } from '../../context/ConfigContext'
+import TarjetaCuota from './TarjetaCuota'
+import Recibo from '../Documentos/Recibo'
+
+export default function PantallaCobranza() {
+  const [searchParams] = useSearchParams()
+  const { config } = useConfig()
+  const [busqueda, setBusqueda] = useState('')
+  const [clienteEncontrado, setClienteEncontrado] = useState(null)
+  const [creditosConCuotas, setCreditosConCuotas] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [busquedaError, setBusquedaError] = useState('')
+  const [cobrando, setCobrando] = useState(null)
+  const [reciboData, setReciboData] = useState(null)
+
+  useEffect(() => {
+    const clienteId = searchParams.get('cliente')
+    if (clienteId) cargarClientePorId(clienteId)
+  }, [])
+
+  // Imprimir recibo automáticamente cuando se setea reciboData
+  useEffect(() => {
+    if (reciboData) {
+      setTimeout(() => window.print(), 400)
+      setTimeout(() => setReciboData(null), 3000)
+    }
+  }, [reciboData])
+
+  async function cargarClientePorId(id) {
+    const { data } = await supabase.from('clientes').select('*').eq('id', id).single()
+    if (data) await seleccionarCliente(data)
+  }
+
+  async function buscarCliente() {
+    setBusquedaError('')
+    setClienteEncontrado(null)
+    setCreditosConCuotas([])
+    if (!busqueda.trim()) return
+    setLoading(true)
+    const q = busqueda.trim()
+    const { data } = await supabase
+      .from('clientes')
+      .select('*')
+      .or(`dni.eq.${q},codigo.ilike.${q},nombre.ilike.%${q}%,apellido.ilike.%${q}%`)
+      .limit(5)
+    setLoading(false)
+    if (!data || data.length === 0) {
+      setBusquedaError('Cliente no encontrado')
+      return
+    }
+    await seleccionarCliente(data[0])
+  }
+
+  async function seleccionarCliente(cli) {
+    setLoading(true)
+    setClienteEncontrado(cli)
+    const { data: creditos } = await supabase
+      .from('creditos')
+      .select('*')
+      .eq('cliente_id', cli.id)
+      .in('estado', ['activo', 'atrasado', 'mora'])
+      .order('fecha_inicio')
+
+    const creditosData = []
+    for (const cred of (creditos || [])) {
+      const { data: cuotas } = await supabase
+        .from('cuotas')
+        .select('*')
+        .eq('credito_id', cred.id)
+        .neq('estado', 'pagada')
+        .order('numero_cuota')
+
+      const cuotasConMora = (cuotas || []).map(c => {
+        const saldoBase = c.importe_original - (c.importe_pagado || 0)
+        const mora = calcularMora(saldoBase, c.fecha_vencimiento, config.mora?.tasa_diaria ?? 0.3)
+        return { ...c, moraCalculada: mora }
+      })
+
+      const { data: todasCuotas } = await supabase.from('cuotas').select('*').eq('credito_id', cred.id)
+      const nuevoEstado = calcularEstadoCredito(todasCuotas || [], cred.estado)
+      if (nuevoEstado !== cred.estado && nuevoEstado !== 'incobrable') {
+        await supabase.from('creditos').update({ estado: nuevoEstado }).eq('id', cred.id)
+      }
+
+      creditosData.push({ ...cred, cuotas: cuotasConMora })
+    }
+    setCreditosConCuotas(creditosData)
+    setLoading(false)
+  }
+
+  async function cobrarCuota(cuota, credito, metodoPago, montoPago) {
+    setCobrando(cuota.id)
+    const hoy = hoyArgentina()
+    const mora = cuota.moraCalculada
+    const esPagoCompleto = montoPago >= mora.total
+
+    // Allocate: first to mora, then to principal
+    const moraPagada = Math.min(montoPago, mora.mora)
+    const capitalPagado = Math.max(0, montoPago - mora.mora)
+    const nuevoImportePagado = (cuota.importe_pagado || 0) + capitalPagado
+    const nuevoTotalCobrado = (cuota.total_cobrado || 0) + montoPago
+
+    if (esPagoCompleto) {
+      await supabase.from('cuotas').update({
+        estado: 'pagada',
+        importe_pagado: cuota.importe_original,
+        interes_mora: (cuota.interes_mora || 0) + moraPagada,
+        total_cobrado: nuevoTotalCobrado,
+        fecha_pago: hoy
+      }).eq('id', cuota.id)
+    } else {
+      await supabase.from('cuotas').update({
+        importe_pagado: nuevoImportePagado,
+        interes_mora: (cuota.interes_mora || 0) + moraPagada,
+        total_cobrado: nuevoTotalCobrado
+      }).eq('id', cuota.id)
+    }
+
+    const pagoPayload = {
+      cuota_id: cuota.id,
+      credito_id: credito.id,
+      cliente_id: clienteEncontrado.id,
+      fecha_pago: hoy,
+      importe_cuota: capitalPagado,
+      dias_atraso: mora.dias,
+      interes_mora: moraPagada,
+      total_cobrado: montoPago,
+      cobrador: credito.cobrador || '',
+      metodo_pago: metodoPago
+    }
+    await supabase.from('pagos').insert(pagoPayload)
+
+    const { data: todasCuotas } = await supabase.from('cuotas').select('*').eq('credito_id', credito.id)
+    const nuevoEstado = calcularEstadoCredito(todasCuotas || [], credito.estado)
+    await supabase.from('creditos').update({ estado: nuevoEstado }).eq('id', credito.id)
+
+    setCobrando(null)
+
+    // Preparar datos para imprimir recibo
+    setReciboData({
+      pago: { ...pagoPayload },
+      cuota,
+      credito,
+      cliente: clienteEncontrado
+    })
+
+    await seleccionarCliente(clienteEncontrado)
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Recibo oculto para imprimir */}
+      {reciboData && (
+        <div className="print-only">
+          <Recibo
+            pago={reciboData.pago}
+            cuota={reciboData.cuota}
+            credito={reciboData.credito}
+            cliente={reciboData.cliente}
+            config={config}
+          />
+        </div>
+      )}
+
+      {/* Buscador */}
+      <div className="card">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            className="input-field flex-1"
+            placeholder="Buscar cliente por DNI, código CLI-XXXX o nombre..."
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && buscarCliente()}
+          />
+          <button onClick={buscarCliente} className="btn-primary px-6">
+            {loading ? '...' : 'Buscar'}
+          </button>
+        </div>
+        {busquedaError && <p className="text-sm text-red-600 mt-2">{busquedaError}</p>}
+      </div>
+
+      {/* Datos del cliente */}
+      {clienteEncontrado && (
+        <div className="card bg-orange-50 border-orange-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-bold text-orange-900 text-lg">
+                {clienteEncontrado.apellido}, {clienteEncontrado.nombre}
+              </div>
+              <div className="text-sm text-orange-700">
+                {clienteEncontrado.codigo} · DNI: {clienteEncontrado.dni} · {clienteEncontrado.celular}
+              </div>
+            </div>
+            <Link to={`/clientes/${clienteEncontrado.id}`} className="text-orange-600 hover:underline text-sm">
+              Ver ficha →
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {loading && <div className="text-center py-8 text-gray-400">Cargando...</div>}
+
+      {creditosConCuotas.length === 0 && clienteEncontrado && !loading && (
+        <div className="card text-center py-8">
+          <div className="text-green-600 text-lg font-semibold mb-1">¡Todas las cuotas al día!</div>
+          <div className="text-gray-400 text-sm">Este cliente no tiene cuotas pendientes de cobro.</div>
+        </div>
+      )}
+
+      {creditosConCuotas.map(credito => (
+        <div key={credito.id} className="card">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200">
+            <div>
+              <span className="font-mono font-bold text-orange-700">{credito.numero_credito}</span>
+              <span className="ml-3 text-sm text-gray-500">
+                {credito.tipo === 'hogar' ? 'Crédito del Hogar' : 'Préstamo en Efectivo'} ·{' '}
+                {credito.cantidad_cuotas} cuotas {credito.periodicidad}es
+              </span>
+            </div>
+            <Link to={`/creditos/${credito.id}`} className="text-orange-600 hover:underline text-xs">
+              Ver detalle
+            </Link>
+          </div>
+
+          <div className="space-y-3">
+            {credito.cuotas.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-2">No hay cuotas pendientes</p>
+            ) : (
+              credito.cuotas.map(cuota => (
+                <TarjetaCuota
+                  key={cuota.id}
+                  cuota={cuota}
+                  credito={credito}
+                  onCobrar={(metodo, monto) => cobrarCuota(cuota, credito, metodo, monto)}
+                  cobrando={cobrando === cuota.id}
+                  exitoId={reciboData?.cuota?.id}
+                />
+              ))
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
