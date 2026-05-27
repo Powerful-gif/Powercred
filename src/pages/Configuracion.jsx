@@ -128,14 +128,20 @@ export default function Configuracion() {
       {/* Tasas */}
       {tab === 'tasas' && (
         <div className="space-y-4">
-          {['hogar', 'efectivo'].map(tipo => (
+          {[
+            { key: 'hogar', label: '🏠 Crédito del Hogar' },
+            { key: 'efectivo', label: '💵 Préstamo en Efectivo' },
+            { key: 'colchones', label: '🛋️ Colchones y Sillones' },
+          ].map(({ key: tipo, label }) => (
             <div key={tipo} className="card">
-              <h3 className="font-semibold text-gray-900 mb-4 capitalize">
-                {tipo === 'hogar' ? '🏠 Crédito del Hogar' : '💵 Préstamo en Efectivo'}
-              </h3>
-              {['mensual', 'semanal'].map(period => (
+              <h3 className="font-semibold text-gray-900 mb-4">{label}</h3>
+              {[
+                { key: 'mensual', label: 'Mensuales' },
+                { key: 'quincenal', label: 'Quincenales' },
+                { key: 'semanal', label: 'Semanales' },
+              ].map(({ key: period, label: periodLabel }) => (
                 <div key={period} className="mb-5">
-                  <div className="text-sm font-medium text-gray-600 mb-2 capitalize">{period}es</div>
+                  <div className="text-sm font-medium text-gray-600 mb-2">{periodLabel}</div>
                   <div className="flex flex-wrap gap-3">
                     {Object.entries(tasas[tipo]?.[period] || {}).map(([cuotas, tasa]) => (
                       <div key={cuotas} className="flex flex-col items-center gap-1">

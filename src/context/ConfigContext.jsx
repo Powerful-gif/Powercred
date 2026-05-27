@@ -28,6 +28,11 @@ const DEFAULT_CONFIG = {
       mensual: { 3: 24, 6: 48, 9: 72 },
       quincenal: { 4: 16, 6: 24, 8: 32, 10: 40, 12: 48 },
       semanal: { 4: 8, 8: 16, 12: 24, 16: 32, 20: 40, 24: 48 }
+    },
+    colchones: {
+      mensual: { 3: 0, 6: 0, 9: 18, 12: 24 },
+      quincenal: { 4: 0, 6: 0, 8: 0, 10: 0, 12: 0 },
+      semanal: { 4: 0, 8: 0, 12: 0, 16: 0, 20: 0, 24: 0 }
     }
   }
 }
@@ -54,7 +59,8 @@ export function ConfigProvider({ children }) {
         if (data.datos?.tasas) {
           merged.tasas = {
             hogar: { ...DEFAULT_CONFIG.tasas.hogar, ...data.datos.tasas?.hogar },
-            efectivo: { ...DEFAULT_CONFIG.tasas.efectivo, ...data.datos.tasas?.efectivo }
+            efectivo: { ...DEFAULT_CONFIG.tasas.efectivo, ...data.datos.tasas?.efectivo },
+            colchones: { ...DEFAULT_CONFIG.tasas.colchones, ...data.datos.tasas?.colchones }
           }
         }
         setConfig(merged)
