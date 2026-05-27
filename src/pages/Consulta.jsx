@@ -17,9 +17,11 @@ export default function Consulta() {
   const [rubro, setRubro] = useState('general')
   const [abiertos, setAbiertos] = useState({ mensual: true, quincenal: false, semanal: false })
 
-  const pct = modoEntrega === 'custom' ? (parseFloat(pctCustom) || 0) : parseFloat(modoEntrega)
+  const pct = modoEntrega === 'custom' ? null : parseFloat(modoEntrega)
   const precioNum = parseFloat(precio) || 0
-  const entrega = Math.round(precioNum * pct / 100)
+  const entrega = modoEntrega === 'custom'
+    ? (parseFloat(pctCustom) || 0)
+    : Math.round(precioNum * pct / 100)
   const aFinanciar = Math.max(0, precioNum - entrega)
   const hayImporte = aFinanciar > 0
 
@@ -61,7 +63,7 @@ export default function Consulta() {
             </div>
             <div style={{ display: 'flex', gap: '20px', background: '#f5f5f5', padding: '10px 14px', borderRadius: '8px', marginBottom: '18px', fontSize: '13px' }}>
               <span><strong>Precio:</strong> {formatMoneda(precioNum)}</span>
-              {pct > 0 && <span><strong>Entrega ({pct}%):</strong> {formatMoneda(entrega)}</span>}
+              {entrega > 0 && <span><strong>Entrega{pct ? ` (${pct}%)` : ''}:</strong> {formatMoneda(entrega)}</span>}
               <span><strong>Financia:</strong> {formatMoneda(aFinanciar)}</span>
             </div>
             {Object.entries(PLANES)
@@ -125,7 +127,7 @@ export default function Consulta() {
               { val: '0', label: 'Sin entrega' },
               { val: '20', label: '20%' },
               { val: '30', label: '30%' },
-              { val: 'custom', label: 'Otra %' },
+              { val: 'custom', label: 'Personalizada' },
             ].map(({ val, label }) => (
               <button
                 key={val}
@@ -141,24 +143,26 @@ export default function Consulta() {
             ))}
             {modoEntrega === 'custom' && (
               <div className="flex items-center gap-1">
+                <span className="text-gray-500 text-sm font-medium">$</span>
                 <input
                   type="number"
-                  className="input-field w-20 text-sm"
-                  placeholder="25"
+                  className="input-field w-32 text-sm"
+                  placeholder="Monto exacto"
                   value={pctCustom}
                   onChange={e => setPctCustom(e.target.value)}
-                  min="0" max="100"
+                  min="0"
                 />
-                <span className="text-gray-500 text-sm font-medium">%</span>
               </div>
             )}
           </div>
 
           {precioNum > 0 && (
             <div className="flex flex-wrap gap-6 mt-4 p-4 bg-gray-50 rounded-xl">
-              {pct > 0 && (
+              {entrega > 0 && (
                 <div>
-                  <div className="text-xs text-gray-500">Entrega ({pct}%)</div>
+                  <div className="text-xs text-gray-500">
+                    Entrega{pct ? ` (${pct}%)` : ''}
+                  </div>
                   <div className="font-bold text-gray-900 text-lg">{formatMoneda(entrega)}</div>
                 </div>
               )}
