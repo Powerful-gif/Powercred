@@ -46,10 +46,7 @@ export default function ListadoCreditos() {
     }
 
     const { data } = await query
-    const filtrados = isAdmin
-      ? (data || []).filter(c => c.vendedor !== 'Carlos')
-      : (data || [])
-    setCreditos(filtrados)
+    setCreditos(data || [])
     setLoading(false)
   }
 

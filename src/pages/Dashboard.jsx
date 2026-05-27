@@ -53,10 +53,7 @@ export default function Dashboard() {
         creditosQuery = creditosQuery.eq('vendedor', userNombre)
       }
 
-      const { data: todosCreditos } = await creditosQuery
-      const creditos = isAdmin
-        ? (todosCreditos || []).filter(c => c.vendedor !== 'Carlos')
-        : (todosCreditos || [])
+      const { data: creditos } = await creditosQuery
 
       const creditoIds = (creditos || []).map(c => c.id)
       let cuotasPorCredito = {}
