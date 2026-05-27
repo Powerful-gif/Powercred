@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { formatMoneda, formatFecha, celularWhatsApp } from '../../lib/formatters'
 import { calcularCapacidadDisponible } from '../../lib/calculos'
+import { useConfig } from '../../context/ConfigContext'
 
 const ESTADO_BADGE = {
   activo:      { cls: 'badge-activo',      label: 'Al día' },
@@ -15,6 +16,7 @@ const ESTADO_BADGE = {
 export default function FichaCliente() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { getTasa } = useConfig()
   const [cliente, setCliente] = useState(null)
   const [creditos, setCreditos] = useState([])
   const [loading, setLoading] = useState(true)
@@ -158,6 +160,27 @@ export default function FichaCliente() {
                 </div>
               </div>
             </div>
+
+            {/* Potencial de crédito */}
+            {capacidad.disponible > 0 && (
+              <div className="mt-4">
+                <div className="text-xs text-gray-500 mb-2 font-medium">¿Cuánto puede sacar? · Cuotas mensuales (Hogar)</div>
+                <div className="grid grid-cols-4 gap-2">
+                  {[3, 6, 9, 12].map(n => {
+                    const tasa = getTasa('hogar', 'mensual', n)
+                    const importeMax = Math.floor(capacidad.disponible * n / (1 + tasa / 100))
+                    return (
+                      <div key={n} className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
+                        <div className="text-xs font-semibold text-gray-700">{n} cuotas</div>
+                        <div className="text-xs text-gray-400 mb-1">{tasa > 0 ? `${tasa}%` : 'sin interés'}</div>
+                        <div className="font-bold text-blue-800 text-sm">{formatMoneda(importeMax)}</div>
+                        <div className="text-xs text-gray-400 mt-0.5">máx. a financiar</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
