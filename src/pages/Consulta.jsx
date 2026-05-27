@@ -75,17 +75,13 @@ export default function Consulta() {
                     <thead>
                       <tr style={{ background: '#eee' }}>
                         <th style={{ padding: '7px 10px', textAlign: 'left', border: '1px solid #ddd' }}>Cuotas</th>
-                        <th style={{ padding: '7px 10px', textAlign: 'center', border: '1px solid #ddd' }}>Tasa</th>
                         <th style={{ padding: '7px 10px', textAlign: 'center', border: '1px solid #ddd' }}>Valor cuota</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filas(peri, opciones).map(({ n, tasa, cuota }) => (
+                      {filas(peri, opciones).map(({ n, cuota }) => (
                         <tr key={n}>
                           <td style={{ padding: '7px 10px', border: '1px solid #ddd', fontWeight: 'bold' }}>{n} cuotas</td>
-                          <td style={{ padding: '7px 10px', border: '1px solid #ddd', textAlign: 'center', color: '#666' }}>
-                            {tasa === 0 ? 'Sin interés' : `${tasa}%`}
-                          </td>
                           <td style={{ padding: '7px 10px', border: '1px solid #ddd', textAlign: 'center', fontWeight: 'bold', fontSize: '15px' }}>
                             {formatMoneda(cuota)}
                           </td>
