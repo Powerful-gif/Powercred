@@ -15,6 +15,7 @@ import Consulta from './pages/Consulta'
 import Reportes from './pages/Reportes'
 import Configuracion from './pages/Configuracion'
 import Autorizacion from './pages/Autorizacion'
+import Importar from './pages/Importar'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
@@ -51,6 +52,7 @@ function AppRoutes() {
         <Route path="reportes" element={<Reportes />} />
         <Route path="configuracion" element={<Configuracion />} />
         <Route path="autorizacion" element={<Autorizacion />} />
+        <Route path="importar" element={<Importar />} />
       </Route>
     </Routes>
   )
