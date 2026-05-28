@@ -148,7 +148,7 @@ export default function Importar() {
       const numeroCredito = `CRED-${String(numCredito).padStart(4, '0')}`
       numCredito++
 
-      const primerVenc = calcularPrimerVencimiento(fechaInicio, periodicidad)
+      const primerVenc = fechaInicio
 
       const { data: credData, error: credErr } = await supabase
         .from('creditos')
