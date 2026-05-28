@@ -91,15 +91,7 @@ export function numeroALetras(numero) {
 
 // Hoy en Argentina (YYYY-MM-DD)
 export function hoyArgentina() {
-  const ahora = new Date()
-  const offsetArg = -3 * 60
-  const offsetLocal = ahora.getTimezoneOffset()
-  const diff = (offsetLocal - offsetArg) * 60000
-  const argDate = new Date(ahora.getTime() + diff)
-  const y = argDate.getFullYear()
-  const m = String(argDate.getMonth() + 1).padStart(2, '0')
-  const d = String(argDate.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+  return new Date().toLocaleDateString('sv', { timeZone: 'America/Argentina/Buenos_Aires' })
 }
 
 // Días de diferencia entre dos fechas YYYY-MM-DD
