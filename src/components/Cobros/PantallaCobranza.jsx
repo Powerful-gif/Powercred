@@ -137,13 +137,18 @@ export default function PantallaCobranza() {
       cliente_id: clienteEncontrado.id,
       fecha_pago: hoy,
       importe_cuota: capitalPagado,
-      dias_atraso: mora.dias,
+      dias_atraso: mora.dias ?? 0,
       interes_mora: moraPagada,
       total_cobrado: montoPago,
       cobrador: credito.cobrador || '',
       metodo_pago: metodoPago
     }
-    await supabase.from('pagos').insert(pagoPayload)
+    const { error: pagoErr } = await supabase.from('pagos').insert(pagoPayload)
+    if (pagoErr) {
+      alert('Error al registrar el pago: ' + pagoErr.message)
+      setCobrando(null)
+      return
+    }
 
     const { data: todasCuotas } = await supabase.from('cuotas').select('*').eq('credito_id', credito.id)
     const nuevoEstado = calcularEstadoCredito(todasCuotas || [], credito.estado)
