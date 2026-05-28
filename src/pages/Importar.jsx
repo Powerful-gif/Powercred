@@ -86,6 +86,17 @@ export default function Importar() {
   const [resultado, setResultado] = useState(null)
   const [errores, setErrores] = useState([])
   const [preview, setPreview] = useState(null)
+  const [limpiando, setLimpiando] = useState(false)
+
+  async function limpiarDatos() {
+    if (!window.confirm('¿Seguro? Se borran TODOS los créditos, cuotas y pagos. Los clientes se mantienen.')) return
+    setLimpiando(true)
+    await supabase.from('pagos').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    await supabase.from('cuotas').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    await supabase.from('creditos').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    setLimpiando(false)
+    alert('Listo. Créditos, cuotas y pagos borrados. Clientes conservados.')
+  }
 
   async function verPreview() {
     if (!archivoCred || !archivoPagos) return
@@ -331,6 +342,20 @@ export default function Importar() {
 
   return (
     <div className="max-w-2xl space-y-5">
+
+      {/* Botón limpiar */}
+      <div className="card border border-red-200">
+        <h3 className="font-semibold text-red-700 mb-1">Limpiar datos</h3>
+        <p className="text-xs text-gray-500 mb-3">Borra todos los créditos, cuotas y pagos. Los clientes se conservan.</p>
+        <button
+          onClick={limpiarDatos}
+          disabled={limpiando}
+          className="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+        >
+          {limpiando ? 'Borrando...' : 'Borrar todos los créditos y pagos'}
+        </button>
+      </div>
+
       <div className="card">
         <h2 className="font-bold text-gray-800 text-lg mb-1">Importar Créditos Históricos</h2>
         <p className="text-sm text-gray-500 mb-5">
