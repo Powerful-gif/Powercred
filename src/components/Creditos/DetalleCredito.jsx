@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { formatMoneda, formatFecha, formatPorcentaje } from '../../lib/formatters'
-import { calcularMora } from '../../lib/calculos'
+import { calcularMora, calcularEstadoCredito } from '../../lib/calculos'
 import { useConfig } from '../../context/ConfigContext'
+import { useAuth } from '../../context/AuthContext'
 import TarjetaCuotasDoc from '../Documentos/TarjetaCuotas'
 import PagareDoc from '../Documentos/Pagare'
 
@@ -29,6 +30,7 @@ export default function DetalleCredito() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { config } = useConfig()
+  const { isAdmin } = useAuth()
   const [credito, setCredito] = useState(null)
   const [cuotas, setCuotas] = useState([])
   const [pagos, setPagos] = useState([])
@@ -36,6 +38,8 @@ export default function DetalleCredito() {
   const [docActivo, setDocActivo] = useState(null)
   const [confirmBorrar, setConfirmBorrar] = useState(false)
   const [borrando, setBorrando] = useState(false)
+  const [confirmAnular, setConfirmAnular] = useState(null)
+  const [anulando, setAnulando] = useState(false)
 
   useEffect(() => {
     cargar()
@@ -67,6 +71,24 @@ export default function DetalleCredito() {
   function imprimirDoc(doc) {
     setDocActivo(doc)
     setTimeout(() => window.print(), 300)
+  }
+
+  async function anularCobro(pago) {
+    setAnulando(true)
+    await supabase.from('pagos').delete().eq('id', pago.id)
+    await supabase.from('cuotas').update({
+      estado: 'pendiente',
+      total_cobrado: 0,
+      importe_pagado: 0,
+      interes_mora: 0,
+      fecha_pago: null
+    }).eq('id', pago.cuota_id)
+    const { data: todasCuotas } = await supabase.from('cuotas').select('*').eq('credito_id', id)
+    const nuevoEstado = calcularEstadoCredito(todasCuotas || [], credito.estado)
+    await supabase.from('creditos').update({ estado: nuevoEstado }).eq('id', id)
+    setConfirmAnular(null)
+    setAnulando(false)
+    cargar()
   }
 
   async function borrarCredito() {
@@ -257,6 +279,7 @@ export default function DetalleCredito() {
                 <th className="text-right py-2 text-gray-500 font-medium">Mora</th>
                 <th className="text-right py-2 text-gray-500 font-medium">Total</th>
                 <th className="text-left py-2 text-gray-500 font-medium">Cobrador</th>
+                {isAdmin && <th className="py-2"></th>}
               </tr>
             </thead>
             <tbody>
@@ -269,6 +292,16 @@ export default function DetalleCredito() {
                   </td>
                   <td className="py-2 text-right font-semibold">{formatMoneda(p.total_cobrado)}</td>
                   <td className="py-2 text-gray-500 text-xs">{p.cobrador || '-'}</td>
+                  {isAdmin && (
+                    <td className="py-2 text-right">
+                      <button
+                        onClick={() => setConfirmAnular(p)}
+                        className="text-xs text-red-500 hover:text-red-700 hover:underline"
+                      >
+                        Anular
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -285,6 +318,36 @@ export default function DetalleCredito() {
       {docActivo === 'pagare' && (
         <div className="print-only">
           <PagareDoc credito={credito} cliente={credito.clientes} config={config} />
+        </div>
+      )}
+
+      {/* Modal confirmar anular cobro */}
+      {confirmAnular && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-sm mx-4 shadow-xl">
+            <h3 className="font-bold text-gray-900 text-lg mb-2 text-center">¿Anular este cobro?</h3>
+            <p className="text-sm text-gray-600 mb-1 text-center">
+              Fecha: <strong>{formatFecha(confirmAnular.fecha_pago)}</strong> — Total: <strong>{formatMoneda(confirmAnular.total_cobrado)}</strong>
+            </p>
+            <p className="text-sm text-gray-500 mb-4 text-center">
+              La cuota vuelve a quedar pendiente.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => anularCobro(confirmAnular)}
+                disabled={anulando}
+                className="btn-danger flex-1"
+              >
+                {anulando ? 'Anulando...' : 'Sí, anular'}
+              </button>
+              <button
+                onClick={() => setConfirmAnular(null)}
+                className="btn-secondary flex-1"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
