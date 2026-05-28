@@ -108,8 +108,9 @@ export default function DetalleCredito() {
   if (!credito) return <div className="text-center py-12 text-gray-400">Crédito no encontrado</div>
 
   const cuotasPagadas = cuotas.filter(c => c.estado === 'pagada').length
-  const totalPagado = cuotas.reduce((s, c) => s + Number(c.total_cobrado || 0), 0)
-  const saldoPendiente = credito.total_con_intereses - totalPagado
+  const saldoPendiente = cuotas
+    .filter(c => c.estado !== 'pagada')
+    .reduce((s, c) => s + Number(c.importe_original), 0)
 
   return (
     <div className="space-y-5 max-w-4xl">
