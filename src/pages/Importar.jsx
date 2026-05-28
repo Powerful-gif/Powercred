@@ -45,8 +45,18 @@ function parsearEstado(str) {
 }
 
 function parsearCSV(texto) {
-  const lineas = texto.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n')
-  const headers = lineas[0].split(',').map(h => h.trim().replace(/"/g, ''))
+  // Strip UTF-8 BOM that Excel adds on Windows
+  const textolimpio = texto.replace(/^﻿/, '')
+  const lineas = textolimpio.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n')
+  if (lineas.length < 2) return []
+
+  // Auto-detect delimiter: semicolon (Spanish locale Excel) vs comma
+  const primeraLinea = lineas[0]
+  const delim = (primeraLinea.split(';').length > primeraLinea.split(',').length) ? ';' : ','
+
+  // Normalize all headers to uppercase so column lookup is case-insensitive
+  const headers = primeraLinea.split(delim).map(h => h.trim().replace(/"/g, '').toUpperCase())
+
   const filas = []
   for (let i = 1; i < lineas.length; i++) {
     const linea = lineas[i].trim()
@@ -57,7 +67,7 @@ function parsearCSV(texto) {
     for (let j = 0; j < linea.length; j++) {
       const c = linea[j]
       if (c === '"') { dentro = !dentro }
-      else if (c === ',' && !dentro) { valores.push(actual.trim()); actual = '' }
+      else if (c === delim && !dentro) { valores.push(actual.trim()); actual = '' }
       else { actual += c }
     }
     valores.push(actual.trim())
@@ -75,6 +85,39 @@ export default function Importar() {
   const [progreso, setProgreso] = useState({ actual: 0, total: 0, msg: '' })
   const [resultado, setResultado] = useState(null)
   const [errores, setErrores] = useState([])
+  const [preview, setPreview] = useState(null)
+
+  async function verPreview() {
+    if (!archivoCred || !archivoPagos) return
+    const textoCred = await archivoCred.text()
+    const textoPagos = await archivoPagos.text()
+    const credRows = parsearCSV(textoCred)
+    const pagoRows = parsearCSV(textoPagos)
+
+    // Consultar clientes en Supabase para diagnóstico
+    const { data: clientes, error: errCli } = await supabase.from('clientes').select('id, dni')
+    const clienteByDni = {}
+    for (const c of (clientes || [])) clienteByDni[String(c.dni).trim()] = c.id
+
+    // Verificar primeros 5 DNIs del CSV contra la base
+    const dnisCsv = credRows.slice(0, 5).map(r => {
+      const dni = String(r['DNI'] || '').trim()
+      return { dni, encontrado: !!clienteByDni[dni] }
+    })
+
+    setPreview({
+      credHeaders: credRows.length > 0 ? Object.keys(credRows[0]) : [],
+      credEjemplo: credRows[0] || {},
+      pagoHeaders: pagoRows.length > 0 ? Object.keys(pagoRows[0]) : [],
+      pagoEjemplo: pagoRows[0] || {},
+      totalCred: credRows.length,
+      totalPagos: pagoRows.length,
+      totalClientesBD: (clientes || []).length,
+      errorBD: errCli ? errCli.message : null,
+      dnisBD: Object.keys(clienteByDni).slice(0, 5),
+      dnisCsv,
+    })
+  }
 
   async function ejecutarImport() {
     if (!archivoCred || !archivoPagos) return
@@ -216,7 +259,7 @@ export default function Importar() {
     for (let i = 0; i < pagoRows.length; i++) {
       const row = pagoRows[i]
       const dni = String(row['DNI'] || '').trim()
-      const fechaInicio = parsearFecha(row['Fecha Inicio'])
+      const fechaInicio = parsearFecha(row['FECHA INICIO'])
       const key = `${dni}_${fechaInicio}`
       const entry = creditoMap[key]
 
@@ -226,7 +269,7 @@ export default function Importar() {
         continue
       }
 
-      const numCuotaRaw = row['N°'] || row['N'] || row['Nro'] || row['NUMERO'] || ''
+      const numCuotaRaw = row['N°'] || row['N°'] || row['N'] || row['NRO'] || row['NUMERO'] || ''
       const numeroCuota = parseInt(numCuotaRaw) || 0
       const cuota = entry.cuotaByNum[numeroCuota]
 
@@ -236,9 +279,9 @@ export default function Importar() {
         continue
       }
 
-      const fechaPago = parsearFecha(row['Fecha Cobro'])
-      const cobrado = parsearMonto(row['Cobrado'])
-      const cuotaBase = parsearMonto(row['Cuota'])
+      const fechaPago = parsearFecha(row['FECHA COBRO'])
+      const cobrado = parsearMonto(row['COBRADO'])
+      const cuotaBase = parsearMonto(row['CUOTA'])
       const mora = Math.max(0, Math.round((cobrado - cuotaBase) * 100) / 100)
 
       if (!fechaPago || cobrado <= 0) {
@@ -323,15 +366,75 @@ export default function Importar() {
         </div>
 
         {archivoCred && archivoPagos && !resultado && (
-          <button
-            onClick={ejecutarImport}
-            disabled={importando}
-            className="btn-primary w-full"
-          >
-            {importando ? 'Importando...' : 'Iniciar importación'}
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={verPreview}
+              disabled={importando}
+              className="btn-secondary flex-1"
+            >
+              Verificar columnas
+            </button>
+            <button
+              onClick={ejecutarImport}
+              disabled={importando}
+              className="btn-primary flex-1"
+            >
+              {importando ? 'Importando...' : 'Iniciar importación'}
+            </button>
+          </div>
         )}
       </div>
+
+      {/* Preview de columnas */}
+      {preview && !importando && (
+        <div className="card">
+          <h3 className="font-semibold text-gray-900 mb-3">Verificación de columnas</h3>
+          <div className="space-y-4">
+
+            {/* Diagnóstico base de datos */}
+            <div className={`p-3 rounded-lg text-xs ${preview.errorBD ? 'bg-red-50' : 'bg-gray-50'}`}>
+              <div className="font-medium text-gray-700 mb-1">Base de datos</div>
+              {preview.errorBD
+                ? <div className="text-red-600">Error al consultar clientes: {preview.errorBD}</div>
+                : <div className="text-gray-600">Clientes cargados: <strong>{preview.totalClientesBD}</strong></div>
+              }
+              {preview.dnisBD?.length > 0 && (
+                <div className="mt-1 text-gray-500">DNIs en BD (primeros 5): <span className="font-mono">{preview.dnisBD.join(' | ')}</span></div>
+              )}
+            </div>
+
+            {/* DNIs del CSV vs BD */}
+            <div>
+              <div className="font-medium text-gray-700 text-xs mb-2">DNIs del CSV de Créditos (primeros 5)</div>
+              <div className="space-y-1">
+                {preview.dnisCsv?.map((item, i) => (
+                  <div key={i} className={`flex items-center gap-2 text-xs px-2 py-1 rounded font-mono ${item.encontrado ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                    <span>{item.encontrado ? '✓' : '✗'}</span>
+                    <span>{item.dni || '(vacío)'}</span>
+                    <span className="text-gray-400">{item.encontrado ? 'encontrado' : 'NO encontrado en BD'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Columnas detectadas */}
+            <div>
+              <div className="text-xs font-medium text-gray-500 mb-1">Columnas CSV Créditos — {preview.totalCred} filas</div>
+              <div className="flex flex-wrap gap-1">
+                {preview.credHeaders.map(h => (
+                  <span key={h} className={`text-xs px-2 py-0.5 rounded-full font-mono ${['DNI','CAPITAL','FINANCIADO','CUOTAS','CUOTA','TASA','MODALIDAD','INICIO','SITUACION'].includes(h) ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{h}</span>
+                ))}
+              </div>
+            </div>
+
+            {!preview.credHeaders.includes('DNI') && (
+              <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                Atención: columna DNI no detectada. Columnas encontradas: {preview.credHeaders.join(', ')}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Progreso */}
       {importando && (
