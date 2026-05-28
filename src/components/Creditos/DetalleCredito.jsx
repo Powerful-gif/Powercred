@@ -110,7 +110,7 @@ export default function DetalleCredito() {
   const cuotasPagadas = cuotas.filter(c => c.estado === 'pagada').length
   const saldoPendiente = cuotas
     .filter(c => c.estado !== 'pagada')
-    .reduce((s, c) => s + Number(c.importe_original), 0)
+    .reduce((s, c) => s + Number(c.importe_original) - Number(c.importe_pagado || 0), 0)
 
   return (
     <div className="space-y-5 max-w-4xl">
