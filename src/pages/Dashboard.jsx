@@ -49,7 +49,7 @@ export default function Dashboard() {
       let creditosQuery = supabase
         .from('creditos')
         .select('*, clientes(nombre, apellido, codigo, id, celular)')
-        .in('estado', ['activo', 'atrasado', 'mora', 'incobrable'])
+        .in('estado', ['activo', 'atrasado', 'mora', 'incobrable', 'cancelado'])
 
       if (!isAdmin && userNombre) {
         creditosQuery = creditosQuery.or(`vendedor.eq.${userNombre},vendedor.is.null`)
