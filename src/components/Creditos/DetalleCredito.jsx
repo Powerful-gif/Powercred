@@ -145,6 +145,9 @@ export default function DetalleCredito() {
             <button onClick={() => imprimirDoc('tarjeta')} className="btn-secondary text-sm">
               Imprimir tarjeta
             </button>
+            <button onClick={() => imprimirDoc('estado')} className="btn-secondary text-sm">
+              Imprimir estado de cuenta
+            </button>
             <button onClick={() => window.open('/Pagare.pdf', '_blank')} className="btn-secondary text-sm">
               Imprimir pagaré
             </button>
@@ -319,6 +322,86 @@ export default function DetalleCredito() {
       {docActivo === 'pagare' && (
         <div className="print-only">
           <PagareDoc credito={credito} cliente={credito.clientes} config={config} />
+        </div>
+      )}
+      {docActivo === 'estado' && (
+        <div className="print-only text-sm">
+          <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+            {/* Encabezado */}
+            <div style={{ textAlign: 'center', marginBottom: '16px', borderBottom: '2px solid #000', paddingBottom: '10px' }}>
+              <div style={{ fontSize: '18px', fontWeight: 'bold' }}>ESTADO DE CUENTA</div>
+              <div style={{ fontSize: '13px', marginTop: '4px' }}>{config?.empresa?.nombre || 'POWERCRED'}</div>
+            </div>
+            {/* Datos del crédito */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', marginBottom: '14px', fontSize: '12px' }}>
+              <div><strong>Cliente:</strong> {credito.clientes?.apellido}, {credito.clientes?.nombre}</div>
+              <div><strong>Crédito:</strong> {credito.numero_credito}</div>
+              <div><strong>DNI:</strong> {credito.clientes?.dni}</div>
+              <div><strong>Estado:</strong> {ESTADO_LABEL[credito.estado] || credito.estado}</div>
+              <div><strong>Importe original:</strong> {formatMoneda(credito.importe_original)}</div>
+              <div><strong>Total con intereses:</strong> {formatMoneda(credito.total_con_intereses)}</div>
+              <div><strong>Cuota {credito.periodicidad}:</strong> {formatMoneda(credito.importe_cuota)}</div>
+              <div><strong>Cuotas:</strong> {cuotasPagadas}/{credito.cantidad_cuotas}</div>
+              <div><strong>Tasa:</strong> {credito.tasa_interes_porcentaje}%</div>
+              <div><strong>Saldo pendiente:</strong> {formatMoneda(Math.max(0, saldoPendiente))}</div>
+            </div>
+            {/* Tabla cuotas */}
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{ fontWeight: 'bold', marginBottom: '6px', fontSize: '12px' }}>DETALLE DE CUOTAS</div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                <thead>
+                  <tr style={{ background: '#f0f0f0' }}>
+                    <th style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>N°</th>
+                    <th style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>Vencimiento</th>
+                    <th style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'right' }}>Importe</th>
+                    <th style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'right' }}>Total cobrado</th>
+                    <th style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>Fecha pago</th>
+                    <th style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cuotas.map(c => (
+                    <tr key={c.id}>
+                      <td style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>{c.numero_cuota}</td>
+                      <td style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>{formatFecha(c.fecha_vencimiento)}</td>
+                      <td style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'right' }}>{formatMoneda(c.importe_original)}</td>
+                      <td style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'right' }}>{c.total_cobrado > 0 ? formatMoneda(c.total_cobrado) : '-'}</td>
+                      <td style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>{formatFecha(c.fecha_pago) || '-'}</td>
+                      <td style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>{c.estado}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {/* Historial de cobros */}
+            {pagos.length > 0 && (
+              <div>
+                <div style={{ fontWeight: 'bold', marginBottom: '6px', fontSize: '12px' }}>HISTORIAL DE COBROS</div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                  <thead>
+                    <tr style={{ background: '#f0f0f0' }}>
+                      <th style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>Fecha</th>
+                      <th style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'right' }}>Cuota</th>
+                      <th style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'right' }}>Mora</th>
+                      <th style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'right' }}>Total</th>
+                      <th style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>Método</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagos.map(p => (
+                      <tr key={p.id}>
+                        <td style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>{formatFecha(p.fecha_pago)}</td>
+                        <td style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'right' }}>{formatMoneda(p.importe_cuota)}</td>
+                        <td style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'right' }}>{p.interes_mora > 0 ? formatMoneda(p.interes_mora) : '-'}</td>
+                        <td style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'right' }}>{formatMoneda(p.total_cobrado)}</td>
+                        <td style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>{p.metodo_pago || 'efectivo'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
