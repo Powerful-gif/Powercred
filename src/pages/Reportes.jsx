@@ -27,6 +27,7 @@ export default function Reportes() {
   const [datos, setDatos] = useState([])
   const [loading, setLoading] = useState(false)
   const [totales, setTotales] = useState({})
+  const [metodoFiltro, setMetodoFiltro] = useState('todos')
 
   useEffect(() => {
     cargarReporte()
@@ -176,6 +177,20 @@ export default function Reportes() {
         </div>
       )}
 
+      {/* Filtro método de pago (solo cobranzas) */}
+      {tab === 'cobranzas' && (
+        <div className="flex gap-2 flex-wrap">
+          {['todos', 'efectivo', 'transferencia', 'tarjeta'].map(m => (
+            <button key={m} onClick={() => setMetodoFiltro(m)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${
+                metodoFiltro === m ? 'bg-orange-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}>
+              {m === 'todos' ? 'Todos' : m.charAt(0).toUpperCase() + m.slice(1)}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Resumen */}
       {(totales.total !== undefined || totales.cantidad) && (
         <div className="flex gap-4 flex-wrap">
@@ -210,34 +225,49 @@ export default function Reportes() {
           <div className="overflow-x-auto">
 
             {/* Cobranzas */}
-            {tab === 'cobranzas' && (
-              <table className="w-full text-sm">
-                <thead><tr className="border-b-2 border-gray-200">
-                  <th className="text-left py-2 px-2 text-gray-500 font-medium">Fecha</th>
-                  <th className="text-left py-2 px-2 text-gray-500 font-medium">Cliente</th>
-                  <th className="text-left py-2 px-2 text-gray-500 font-medium">Crédito</th>
-                  <th className="text-right py-2 px-2 text-gray-500 font-medium">Cuota</th>
-                  <th className="text-right py-2 px-2 text-gray-500 font-medium">Mora</th>
-                  <th className="text-right py-2 px-2 text-gray-500 font-medium">Total</th>
-                  <th className="text-left py-2 px-2 text-gray-500 font-medium">Cobrador</th>
-                </tr></thead>
-                <tbody>
-                  {datos.map(p => (
-                    <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-2 px-2">{formatFecha(p.fecha_pago)}</td>
-                      <td className="py-2 px-2">{p.clientes?.apellido}, {p.clientes?.nombre}</td>
-                      <td className="py-2 px-2 font-mono text-xs text-blue-700">{p.creditos?.numero_credito}</td>
-                      <td className="py-2 px-2 text-right">{formatMoneda(p.importe_cuota)}</td>
-                      <td className="py-2 px-2 text-right text-orange-600">
-                        {p.interes_mora > 0 ? formatMoneda(p.interes_mora) : '-'}
-                      </td>
-                      <td className="py-2 px-2 text-right font-semibold">{formatMoneda(p.total_cobrado)}</td>
-                      <td className="py-2 px-2 text-gray-500 text-xs">{p.cobrador || '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+            {tab === 'cobranzas' && (() => {
+              const datosFiltrados = metodoFiltro === 'todos'
+                ? datos
+                : datos.filter(p => (p.metodo_pago || 'efectivo') === metodoFiltro)
+              const totalFiltrado = datosFiltrados.reduce((s, p) => s + Number(p.total_cobrado), 0)
+              return (
+                <>
+                  {metodoFiltro !== 'todos' && (
+                    <div className="mb-3 text-sm text-gray-500">
+                      {datosFiltrados.length} registros · Total: <strong>{formatMoneda(totalFiltrado)}</strong>
+                    </div>
+                  )}
+                  <table className="w-full text-sm">
+                    <thead><tr className="border-b-2 border-gray-200">
+                      <th className="text-left py-2 px-2 text-gray-500 font-medium">Fecha</th>
+                      <th className="text-left py-2 px-2 text-gray-500 font-medium">Cliente</th>
+                      <th className="text-left py-2 px-2 text-gray-500 font-medium">Crédito</th>
+                      <th className="text-right py-2 px-2 text-gray-500 font-medium">Cuota</th>
+                      <th className="text-right py-2 px-2 text-gray-500 font-medium">Mora</th>
+                      <th className="text-right py-2 px-2 text-gray-500 font-medium">Total</th>
+                      <th className="text-left py-2 px-2 text-gray-500 font-medium">Método</th>
+                      <th className="text-left py-2 px-2 text-gray-500 font-medium">Cobrador</th>
+                    </tr></thead>
+                    <tbody>
+                      {datosFiltrados.map(p => (
+                        <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-2 px-2">{formatFecha(p.fecha_pago)}</td>
+                          <td className="py-2 px-2">{p.clientes?.apellido}, {p.clientes?.nombre}</td>
+                          <td className="py-2 px-2 font-mono text-xs text-blue-700">{p.creditos?.numero_credito}</td>
+                          <td className="py-2 px-2 text-right">{formatMoneda(p.importe_cuota)}</td>
+                          <td className="py-2 px-2 text-right text-orange-600">
+                            {p.interes_mora > 0 ? formatMoneda(p.interes_mora) : '-'}
+                          </td>
+                          <td className="py-2 px-2 text-right font-semibold">{formatMoneda(p.total_cobrado)}</td>
+                          <td className="py-2 px-2 text-xs text-gray-500 capitalize">{p.metodo_pago || 'efectivo'}</td>
+                          <td className="py-2 px-2 text-gray-500 text-xs">{p.cobrador || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )
+            })()}
 
             {/* Créditos otorgados */}
             {tab === 'creditos' && (
