@@ -148,12 +148,12 @@ export default function DetalleCredito() {
             <button onClick={() => imprimirDoc('estado')} className="btn-secondary text-sm">
               Imprimir estado de cuenta
             </button>
-            <button onClick={() => window.open('/Pagare.pdf', '_blank')} className="btn-secondary text-sm">
+            <a href="/Pagare.pdf" target="_blank" rel="noopener noreferrer" className="btn-secondary text-sm">
               Imprimir pagaré
-            </button>
-            <button onClick={() => window.open('/contrato.pdf', '_blank')} className="btn-secondary text-sm">
+            </a>
+            <a href="/contrato.pdf" target="_blank" rel="noopener noreferrer" className="btn-secondary text-sm">
               Imprimir contrato
-            </button>
+            </a>
             <Link to={`/cobros?cliente=${credito.cliente_id}`} className="btn-primary text-sm">
               Ir a cobrar
             </Link>
