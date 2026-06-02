@@ -86,12 +86,12 @@ const navItems = [
   }
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ open, onClose }) {
   const { config } = useConfig()
   const { signOut, userNombre, isAdmin } = useAuth()
 
   return (
-    <aside className="sidebar w-60 bg-gray-900 text-white flex flex-col flex-shrink-0 no-print">
+    <aside className={`sidebar w-60 bg-gray-900 text-white flex flex-col flex-shrink-0 no-print fixed md:relative inset-y-0 left-0 z-30 transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
       {/* Logo */}
       <div className="px-4 py-4 border-b border-gray-700">
         <NavLink to="/dashboard" className="flex justify-center">
@@ -112,6 +112,7 @@ export default function Sidebar() {
             <NavLink
               key={item.to}
               to={item.to}
+              onClick={onClose}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive

@@ -160,7 +160,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
           title="Créditos activos"
           value={totalActivos}
@@ -206,7 +206,7 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Resumen cartera */}
         <div className="card">
           <h2 className="text-base font-semibold text-gray-900 mb-4">Resumen de Cartera</h2>

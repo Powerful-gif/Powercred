@@ -262,7 +262,7 @@ export default function NuevoCredito() {
 
       <div className="card">
         <h3 className="font-semibold mb-4">Documentos para imprimir</h3>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <button
             onClick={() => imprimir('tarjeta')}
             className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-orange-400 hover:bg-orange-50 transition-colors"
@@ -504,7 +504,7 @@ export default function NuevoCredito() {
                   ← Volver a planes estándar
                 </button>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="label text-xs">Periodicidad</label>
                   <select
@@ -574,7 +574,7 @@ export default function NuevoCredito() {
         )}
 
         {/* Fechas */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">Fecha de inicio</label>
             <input type="date" className="input-field"
@@ -593,7 +593,7 @@ export default function NuevoCredito() {
         </div>
 
         {/* Cobrador y vendedor */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">Cobrador</label>
             <input type="text" className="input-field" placeholder="Opcional"

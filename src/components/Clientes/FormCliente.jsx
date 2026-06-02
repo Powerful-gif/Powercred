@@ -138,7 +138,7 @@ export default function FormCliente() {
             className="input-field bg-gray-50 text-gray-500 font-mono" />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">Nombre *</label>
             <input type="text" name="nombre" value={form.nombre}
@@ -160,7 +160,7 @@ export default function FormCliente() {
             placeholder="Ej: 30123456" maxLength={9} />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">Celular principal *</label>
             <input type="text" name="celular" value={form.celular}
@@ -182,7 +182,7 @@ export default function FormCliente() {
             placeholder="Ej: San Martín 456" />
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label className="label">Código postal</label>
             <input type="text" name="codigo_postal" value={form.codigo_postal}

@@ -164,7 +164,7 @@ export default function DetalleCredito() {
         </div>
 
         {/* Info crédito */}
-        <div className="grid grid-cols-4 gap-4 mt-5 pt-4 border-t border-gray-100">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5 pt-4 border-t border-gray-100">
           <div>
             <div className="text-xs text-gray-500">Importe original</div>
             <div className="font-bold">{formatMoneda(credito.importe_original)}</div>
