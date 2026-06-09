@@ -124,11 +124,17 @@ export default function PantallaCobranza() {
         fecha_pago: hoy
       }).eq('id', cuota.id)
     } else {
-      await supabase.from('cuotas').update({
-        importe_pagado: nuevoImportePagado,
+      const capitalCompleto = nuevoImportePagado >= cuota.importe_original
+      const updateParcial = {
+        importe_pagado: capitalCompleto ? cuota.importe_original : nuevoImportePagado,
         interes_mora: (cuota.interes_mora || 0) + moraPagada,
         total_cobrado: nuevoTotalCobrado
-      }).eq('id', cuota.id)
+      }
+      if (capitalCompleto) {
+        updateParcial.estado = 'pagada'
+        updateParcial.fecha_pago = hoy
+      }
+      await supabase.from('cuotas').update(updateParcial).eq('id', cuota.id)
     }
 
     const pagoPayload = {
