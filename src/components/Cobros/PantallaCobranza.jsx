@@ -110,10 +110,10 @@ export default function PantallaCobranza() {
     const esPagoCompleto = montoPago >= mora.total
 
     // Allocate: first to mora, then to principal
-    const moraPagada = Math.min(montoPago, mora.mora)
-    const capitalPagado = Math.max(0, montoPago - mora.mora)
-    const nuevoImportePagado = (cuota.importe_pagado || 0) + capitalPagado
-    const nuevoTotalCobrado = (cuota.total_cobrado || 0) + montoPago
+    const moraPagada = Math.round(Math.min(montoPago, mora.mora) * 100) / 100
+    const capitalPagado = Math.round(Math.max(0, montoPago - mora.mora) * 100) / 100
+    const nuevoImportePagado = Math.round(((cuota.importe_pagado || 0) + capitalPagado) * 100) / 100
+    const nuevoTotalCobrado = Math.round(((cuota.total_cobrado || 0) + montoPago) * 100) / 100
 
     if (esPagoCompleto) {
       await supabase.from('cuotas').update({
