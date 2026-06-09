@@ -273,8 +273,8 @@ export default function NuevoCredito() {
             <span className="font-medium text-sm">Tarjeta de Cuotas</span>
             <span className="text-xs text-gray-400">Para el cliente</span>
           </button>
-          <button
-            onClick={() => window.open('/Pagare.pdf', '_blank')}
+          <a
+            href="/Pagare.pdf" target="_blank" rel="noopener noreferrer"
             className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-orange-400 hover:bg-orange-50 transition-colors"
           >
             <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -282,9 +282,9 @@ export default function NuevoCredito() {
             </svg>
             <span className="font-medium text-sm">Pagaré</span>
             <span className="text-xs text-gray-400">En PDF</span>
-          </button>
-          <button
-            onClick={() => window.open('/contrato.pdf', '_blank')}
+          </a>
+          <a
+            href="/contrato.pdf" target="_blank" rel="noopener noreferrer"
             className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-orange-400 hover:bg-orange-50 transition-colors"
           >
             <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -292,7 +292,7 @@ export default function NuevoCredito() {
             </svg>
             <span className="font-medium text-sm">Contrato</span>
             <span className="text-xs text-gray-400">En PDF</span>
-          </button>
+          </a>
         </div>
 
         <div className="flex gap-3 mt-4">
