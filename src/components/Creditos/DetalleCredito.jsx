@@ -354,22 +354,29 @@ export default function DetalleCredito() {
                     <th style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>N°</th>
                     <th style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>Vencimiento</th>
                     <th style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'right' }}>Importe</th>
+                    <th style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'right' }}>Punitorios</th>
                     <th style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'right' }}>Total cobrado</th>
                     <th style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>Fecha pago</th>
                     <th style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>Estado</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {cuotas.map(c => (
+                  {cuotas.map(c => {
+                    const moraImpresa = c.estado === 'pagada'
+                      ? (c.interes_mora > 0 ? formatMoneda(c.interes_mora) : '-')
+                      : (() => { const m = calcularMora(c.importe_original, c.fecha_vencimiento, config.mora?.tasa_diaria); return m.mora > 0 ? formatMoneda(m.mora) : '-' })()
+                    return (
                     <tr key={c.id}>
                       <td style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>{c.numero_cuota}</td>
                       <td style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>{formatFecha(c.fecha_vencimiento)}</td>
                       <td style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'right' }}>{formatMoneda(c.importe_original)}</td>
+                      <td style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'right', color: '#c2410c' }}>{moraImpresa}</td>
                       <td style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'right' }}>{c.total_cobrado > 0 ? formatMoneda(c.total_cobrado) : '-'}</td>
                       <td style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>{formatFecha(c.fecha_pago) || '-'}</td>
                       <td style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>{c.estado}</td>
                     </tr>
-                  ))}
+                  )})}
+
                 </tbody>
               </table>
             </div>
