@@ -84,7 +84,7 @@ export default function DetalleCredito() {
       fecha_pago: null
     }).eq('id', pago.cuota_id)
     const { data: todasCuotas } = await supabase.from('cuotas').select('*').eq('credito_id', id)
-    const nuevoEstado = calcularEstadoCredito(todasCuotas || [], credito.estado)
+    const nuevoEstado = calcularEstadoCredito(todasCuotas || [], 'activo')
     await supabase.from('creditos').update({ estado: nuevoEstado }).eq('id', id)
     setConfirmAnular(null)
     setAnulando(false)
