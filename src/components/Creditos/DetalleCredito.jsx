@@ -40,6 +40,8 @@ export default function DetalleCredito() {
   const [borrando, setBorrando] = useState(false)
   const [confirmAnular, setConfirmAnular] = useState(null)
   const [anulando, setAnulando] = useState(false)
+  const [editandoMetodo, setEditandoMetodo] = useState(null)
+  const [nuevoMetodo, setNuevoMetodo] = useState('')
 
   useEffect(() => {
     cargar()
@@ -88,6 +90,12 @@ export default function DetalleCredito() {
     await supabase.from('creditos').update({ estado: nuevoEstado }).eq('id', id)
     setConfirmAnular(null)
     setAnulando(false)
+    cargar()
+  }
+
+  async function guardarMetodo(pagoId) {
+    await supabase.from('pagos').update({ metodo_pago: nuevoMetodo }).eq('id', pagoId)
+    setEditandoMetodo(null)
     cargar()
   }
 
@@ -282,6 +290,7 @@ export default function DetalleCredito() {
                 <th className="text-right py-2 text-gray-500 font-medium">Cuota</th>
                 <th className="text-right py-2 text-gray-500 font-medium">Mora</th>
                 <th className="text-right py-2 text-gray-500 font-medium">Total</th>
+                <th className="text-left py-2 text-gray-500 font-medium">Método</th>
                 <th className="text-left py-2 text-gray-500 font-medium">Cobrador</th>
                 {isAdmin && <th className="py-2"></th>}
               </tr>
@@ -295,15 +304,42 @@ export default function DetalleCredito() {
                     {p.interes_mora > 0 ? formatMoneda(p.interes_mora) : '-'}
                   </td>
                   <td className="py-2 text-right font-semibold">{formatMoneda(p.total_cobrado)}</td>
+                  <td className="py-2 text-xs">
+                    {editandoMetodo === p.id ? (
+                      <div className="flex items-center gap-1">
+                        <select
+                          value={nuevoMetodo}
+                          onChange={e => setNuevoMetodo(e.target.value)}
+                          className="border border-gray-300 rounded px-1 py-0.5 text-xs"
+                        >
+                          <option value="efectivo">Efectivo</option>
+                          <option value="transferencia">Transferencia</option>
+                          <option value="tarjeta">Tarjeta</option>
+                        </select>
+                        <button onClick={() => guardarMetodo(p.id)} className="text-green-600 hover:text-green-800 font-medium">✓</button>
+                        <button onClick={() => setEditandoMetodo(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+                      </div>
+                    ) : (
+                      <span className="capitalize">{p.metodo_pago || 'efectivo'}</span>
+                    )}
+                  </td>
                   <td className="py-2 text-gray-500 text-xs">{p.cobrador || '-'}</td>
                   {isAdmin && (
                     <td className="py-2 text-right">
-                      <button
-                        onClick={() => setConfirmAnular(p)}
-                        className="text-xs text-red-500 hover:text-red-700 hover:underline"
-                      >
-                        Anular
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => { setEditandoMetodo(p.id); setNuevoMetodo(p.metodo_pago || 'efectivo') }}
+                          className="text-xs text-blue-500 hover:text-blue-700 hover:underline"
+                        >
+                          Editar cobro
+                        </button>
+                        <button
+                          onClick={() => setConfirmAnular(p)}
+                          className="text-xs text-red-500 hover:text-red-700 hover:underline"
+                        >
+                          Anular
+                        </button>
+                      </div>
                     </td>
                   )}
                 </tr>
