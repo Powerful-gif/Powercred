@@ -85,6 +85,15 @@ export default function NuevoCredito() {
   }
 
   async function seleccionarCliente(cli) {
+    const { data: incobrables } = await supabase
+      .from('creditos')
+      .select('id')
+      .eq('cliente_id', cli.id)
+      .eq('estado', 'incobrable')
+    if (incobrables && incobrables.length > 0) {
+      setBusquedaError('Este cliente tiene un crédito derivado a asesor legal. No se puede crear un nuevo crédito.')
+      return
+    }
     const { data: creds } = await supabase
       .from('creditos')
       .select('*')

@@ -19,6 +19,7 @@ export default function PantallaCobranza() {
   const [busquedaError, setBusquedaError] = useState('')
   const [cobrando, setCobrando] = useState(null)
   const [reciboData, setReciboData] = useState(null)
+  const [tieneIncobrables, setTieneIncobrables] = useState(false)
 
   useEffect(() => {
     const clienteId = searchParams.get('cliente')
@@ -69,6 +70,13 @@ export default function PantallaCobranza() {
   async function seleccionarCliente(cli) {
     setLoading(true)
     setClienteEncontrado(cli)
+    setTieneIncobrables(false)
+    const { data: incobrables } = await supabase
+      .from('creditos')
+      .select('id')
+      .eq('cliente_id', cli.id)
+      .eq('estado', 'incobrable')
+    if (incobrables && incobrables.length > 0) setTieneIncobrables(true)
     const { data: creditos } = await supabase
       .from('creditos')
       .select('*')
@@ -227,7 +235,13 @@ export default function PantallaCobranza() {
 
       {loading && <div className="text-center py-8 text-gray-400">Cargando...</div>}
 
-      {creditosConCuotas.length === 0 && clienteEncontrado && !loading && (
+      {tieneIncobrables && clienteEncontrado && !loading && (
+        <div className="card text-center py-8 border-red-200 bg-red-50">
+          <div className="text-red-600 text-lg font-semibold mb-1">⚠ Crédito derivado a asesor legal</div>
+          <div className="text-red-500 text-sm">Este cliente tiene un crédito incobrable. No se puede registrar cobros desde el sistema.</div>
+        </div>
+      )}
+      {creditosConCuotas.length === 0 && clienteEncontrado && !loading && !tieneIncobrables && (
         <div className="card text-center py-8">
           <div className="text-green-600 text-lg font-semibold mb-1">¡Todas las cuotas al día!</div>
           <div className="text-gray-400 text-sm">Este cliente no tiene cuotas pendientes de cobro.</div>

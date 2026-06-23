@@ -156,6 +156,11 @@ export default function DetalleCredito() {
             <button onClick={() => imprimirDoc('estado')} className="btn-secondary text-sm">
               Imprimir estado de cuenta
             </button>
+            {credito.estado === 'incobrable' && (
+              <button onClick={() => imprimirDoc('derivacion')} className="text-sm px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">
+                Imprimir derivación
+              </button>
+            )}
             <a href="/Pagare.pdf" target="_blank" rel="noopener noreferrer" className="btn-secondary text-sm">
               Imprimir pagaré
             </a>
@@ -360,6 +365,94 @@ export default function DetalleCredito() {
           <PagareDoc credito={credito} cliente={credito.clientes} config={config} />
         </div>
       )}
+      {docActivo === 'derivacion' && (() => {
+        const hoyStr = new Date().toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', day: '2-digit', month: '2-digit', year: 'numeric' })
+        const cuotasPendientes = cuotas.filter(c => c.estado !== 'pagada')
+        const totalCapital = cuotasPendientes.reduce((s, c) => s + Number(c.importe_original) - Number(c.importe_pagado || 0), 0)
+        const totalPunitorios = cuotasPendientes.reduce((s, c) => {
+          const saldoBase = Number(c.importe_original) - Number(c.importe_pagado || 0)
+          const m = calcularMora(saldoBase, c.fecha_vencimiento, config.mora?.tasa_diaria ?? 0.3)
+          return s + m.mora
+        }, 0)
+        const totalDeuda = totalCapital + totalPunitorios
+        return (
+          <div className="print-only" style={{ fontFamily: 'Arial, sans-serif', padding: '30px', fontSize: '13px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '24px', borderBottom: '3px solid #000', paddingBottom: '12px' }}>
+              <div style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '1px' }}>DERIVACIÓN A ASESOR LEGAL</div>
+              <div style={{ fontSize: '13px', marginTop: '4px' }}>{config?.negocio?.nombre || 'POWERCRED'} — Fecha: {hoyStr}</div>
+            </div>
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '8px', borderBottom: '1px solid #ccc', paddingBottom: '4px' }}>DATOS DEL DEUDOR</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                <div><strong>Apellido y nombre:</strong> {credito.clientes?.apellido}, {credito.clientes?.nombre}</div>
+                <div><strong>DNI:</strong> {credito.clientes?.dni}</div>
+                <div><strong>Celular:</strong> {credito.clientes?.celular}</div>
+                {credito.clientes?.celular_alternativo && <div><strong>Celular alternativo:</strong> {credito.clientes?.celular_alternativo}</div>}
+                <div><strong>Domicilio:</strong> {credito.clientes?.domicilio}</div>
+                <div><strong>Localidad:</strong> {credito.clientes?.localidad}{credito.clientes?.provincia ? `, ${credito.clientes?.provincia}` : ''}</div>
+              </div>
+            </div>
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '8px', borderBottom: '1px solid #ccc', paddingBottom: '4px' }}>DATOS DEL CRÉDITO</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                <div><strong>Crédito N°:</strong> {credito.numero_credito}</div>
+                <div><strong>Tipo:</strong> {credito.tipo === 'hogar' ? 'Crédito del Hogar' : 'Préstamo en Efectivo'}</div>
+                <div><strong>Importe original:</strong> {formatMoneda(credito.importe_original)}</div>
+                <div><strong>Total con intereses:</strong> {formatMoneda(credito.total_con_intereses)}</div>
+                <div><strong>Cuotas:</strong> {cuotasPendientes.length} pendientes de {credito.cantidad_cuotas}</div>
+                <div><strong>Inicio:</strong> {formatFecha(credito.fecha_inicio)}</div>
+              </div>
+            </div>
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '8px', borderBottom: '1px solid #ccc', paddingBottom: '4px' }}>DETALLE DE DEUDA AL {hoyStr}</div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '10px' }}>
+                <thead>
+                  <tr style={{ background: '#f0f0f0' }}>
+                    <th style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'center' }}>N°</th>
+                    <th style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'center' }}>Vencimiento</th>
+                    <th style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'right' }}>Capital</th>
+                    <th style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'right' }}>Punitorios</th>
+                    <th style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'right' }}>Total cuota</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cuotasPendientes.map(c => {
+                    const saldoBase = Number(c.importe_original) - Number(c.importe_pagado || 0)
+                    const m = calcularMora(saldoBase, c.fecha_vencimiento, config.mora?.tasa_diaria ?? 0.3)
+                    return (
+                      <tr key={c.id}>
+                        <td style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'center' }}>{c.numero_cuota}</td>
+                        <td style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'center' }}>{formatFecha(c.fecha_vencimiento)}</td>
+                        <td style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'right' }}>{formatMoneda(saldoBase)}</td>
+                        <td style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'right', color: '#c2410c' }}>{m.mora > 0 ? formatMoneda(m.mora) : '-'}</td>
+                        <td style={{ border: '1px solid #ccc', padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>{formatMoneda(m.total)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginTop: '12px' }}>
+                <div style={{ background: '#f9f9f9', border: '1px solid #ccc', padding: '10px', textAlign: 'center', borderRadius: '4px' }}>
+                  <div style={{ fontSize: '11px', color: '#666' }}>Capital adeudado</div>
+                  <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{formatMoneda(totalCapital)}</div>
+                </div>
+                <div style={{ background: '#fff3e0', border: '1px solid #ccc', padding: '10px', textAlign: 'center', borderRadius: '4px' }}>
+                  <div style={{ fontSize: '11px', color: '#666' }}>Punitorios al {hoyStr}</div>
+                  <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#c2410c' }}>{formatMoneda(totalPunitorios)}</div>
+                </div>
+                <div style={{ background: '#fee2e2', border: '2px solid #dc2626', padding: '10px', textAlign: 'center', borderRadius: '4px' }}>
+                  <div style={{ fontSize: '11px', color: '#666' }}>TOTAL ADEUDADO</div>
+                  <div style={{ fontWeight: 'bold', fontSize: '18px', color: '#dc2626' }}>{formatMoneda(totalDeuda)}</div>
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: '40px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
+              <div style={{ textAlign: 'center', borderTop: '1px solid #000', paddingTop: '8px' }}>Firma del acreedor</div>
+              <div style={{ textAlign: 'center', borderTop: '1px solid #000', paddingTop: '8px' }}>Firma del asesor legal</div>
+            </div>
+          </div>
+        )
+      })()}
       {docActivo === 'estado' && (
         <div className="print-only text-sm">
           <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
