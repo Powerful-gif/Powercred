@@ -111,6 +111,39 @@ supabase/
 
 ---
 
+## CONSULTA DE CUOTAS — BÚSQUEDA POR CÓDIGO DE BARRAS / SKU
+
+La pantalla "Consulta" (`src/pages/Consulta.jsx`) tiene un campo de código de
+barras arriba del precio. Al escanear/tipear un EAN o un SKU y apretar Enter:
+
+1. Llama a la función serverless `api/precio-por-ean.js` (Vercel).
+2. Esa función busca a qué SKU corresponde el EAN en la tabla `indice_ean` de
+   Supabase (la API de Dux no soporta buscar directamente por EAN — se probó
+   en vivo y cualquier parámetro que no sea `codigoItem` lo ignora). Si el
+   código no está en el índice, prueba usarlo directo como SKU.
+3. Con el SKU, consulta **en vivo** el precio y stock a la API de Dux.
+4. Busca la ficha del producto ya publicada en Tienda Nube (powerfulshop.com.ar)
+   para mostrar características reales; si el producto todavía no está
+   publicado, genera un resumen corto con IA (Claude) como respaldo.
+5. Autocompleta el campo "Precio del artículo" con el resultado (igual se
+   puede editar a mano).
+
+**De dónde sale la tabla `indice_ean`:** la llena un proyecto aparte,
+[`ConsultaPrecios`](https://github.com/Powerful-gif/ConsultaPrecios) (Python +
+Flask, para consultas de precio desde una tablet en el local). Ese repo tiene
+un workflow de GitHub Actions (`.github/workflows/sync.yml`) que corre todas
+las noches a las 3 AM (hora Argentina) y resincroniza el catálogo completo de
+Dux hacia Supabase — corre en la nube, no depende de que ninguna PC esté
+prendida.
+
+**Variables de entorno que necesita este proyecto en Vercel** (Settings →
+Environments → Production) para que `api/precio-por-ean.js` funcione:
+`DUX_TOKEN`, `DUX_DEPOSITO_ID`, `DUX_LISTA_PVP_ID`, `TN_TOKEN`, `TN_STORE_ID`,
+`ANTHROPIC_API_KEY` — además de las `VITE_SUPABASE_*` que ya usa el resto del
+sistema.
+
+---
+
 ## TASAS DE INTERÉS CONFIGURADAS
 
 ### Crédito del Hogar - Cuotas mensuales
