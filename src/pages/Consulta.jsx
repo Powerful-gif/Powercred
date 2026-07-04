@@ -1,10 +1,27 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useConfig } from '../context/ConfigContext'
 import { calcularCuota } from '../lib/calculos'
 import { formatMoneda } from '../lib/formatters'
 
 async function buscarPorEan(ean) {
   const r = await fetch(`/api/precio-por-ean?ean=${encodeURIComponent(ean)}`)
+  const data = await r.json()
+  if (!r.ok) throw new Error(data.error || 'Error desconocido')
+  return data
+}
+
+async function buscarRubrosDisponibles() {
+  const r = await fetch('/api/buscar-catalogo?accion=rubros')
+  if (!r.ok) return []
+  return r.json()
+}
+
+async function buscarPorCatalogo({ rubro, subRubro, nombre }) {
+  const params = new URLSearchParams()
+  if (rubro) params.set('rubro', rubro)
+  if (subRubro) params.set('sub_rubro', subRubro)
+  if (nombre) params.set('nombre', nombre)
+  const r = await fetch(`/api/buscar-catalogo?${params.toString()}`)
   const data = await r.json()
   if (!r.ok) throw new Error(data.error || 'Error desconocido')
   return data
@@ -28,8 +45,39 @@ export default function Consulta() {
   const [buscando, setBuscando] = useState(false)
   const [errorBusqueda, setErrorBusqueda] = useState('')
 
+  const [opcionesRubros, setOpcionesRubros] = useState([])
+  const [rubroCatSel, setRubroCatSel] = useState('')
+  const [subRubroCatSel, setSubRubroCatSel] = useState('')
+  const [nombreCatFiltro, setNombreCatFiltro] = useState('')
+  const [resultadosCatalogo, setResultadosCatalogo] = useState(null)
+  const [buscandoCatalogo, setBuscandoCatalogo] = useState(false)
+  const [errorCatalogo, setErrorCatalogo] = useState('')
+
   const TASAS_TARJETA = { 3: 0, 5: 0, 6: 0, 9: 15, 12: 20 }
   const NOTA_TARJETA = { 5: 'Solo Naranja' }
+
+  useEffect(() => {
+    buscarRubrosDisponibles().then(setOpcionesRubros)
+  }, [])
+
+  const rubrosUnicos = [...new Set(opcionesRubros.map(r => r.rubro))].filter(Boolean).sort()
+  const subRubrosDisponibles = [...new Set(
+    opcionesRubros.filter(r => r.rubro === rubroCatSel).map(r => r.sub_rubro)
+  )].filter(Boolean).sort()
+
+  async function handleBuscarCatalogo() {
+    setBuscandoCatalogo(true)
+    setErrorCatalogo('')
+    setResultadosCatalogo(null)
+    try {
+      const data = await buscarPorCatalogo({ rubro: rubroCatSel, subRubro: subRubroCatSel, nombre: nombreCatFiltro })
+      setResultadosCatalogo(data)
+    } catch (e) {
+      setErrorCatalogo(e.message)
+    } finally {
+      setBuscandoCatalogo(false)
+    }
+  }
 
   async function handleBuscarEan() {
     const valor = ean.trim()
@@ -155,6 +203,86 @@ export default function Consulta() {
       )}
 
       {/* ── PANTALLA ── */}
+
+      {/* Buscar por rubro/sub-rubro */}
+      <div className="card space-y-4">
+        <h2 className="font-bold text-gray-800 text-lg">Buscar por categoría</h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <select
+            className="input-field"
+            value={rubroCatSel}
+            onChange={e => { setRubroCatSel(e.target.value); setSubRubroCatSel('') }}
+          >
+            <option value="">Todos los rubros</option>
+            {rubrosUnicos.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+
+          <select
+            className="input-field"
+            value={subRubroCatSel}
+            onChange={e => setSubRubroCatSel(e.target.value)}
+            disabled={!rubroCatSel}
+          >
+            <option value="">Todos los sub-rubros</option>
+            {subRubrosDisponibles.map(sr => <option key={sr} value={sr}>{sr}</option>)}
+          </select>
+
+          <input
+            type="text"
+            className="input-field"
+            placeholder="Nombre (ej: escritorio)"
+            value={nombreCatFiltro}
+            onChange={e => setNombreCatFiltro(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleBuscarCatalogo() }}
+          />
+        </div>
+
+        <button
+          onClick={handleBuscarCatalogo}
+          disabled={buscandoCatalogo}
+          className="w-full sm:w-auto px-6 py-2 rounded-lg bg-gray-800 text-white font-medium disabled:opacity-50"
+        >
+          {buscandoCatalogo ? 'Buscando...' : 'Buscar'}
+        </button>
+
+        {errorCatalogo && <div className="text-sm text-red-600">{errorCatalogo}</div>}
+
+        {resultadosCatalogo && (
+          <div className="border-t border-gray-100 pt-3">
+            <div className="text-xs text-gray-400 mb-2">
+              {resultadosCatalogo.length} producto{resultadosCatalogo.length !== 1 ? 's' : ''} en stock
+              {' '}(precios de la última sincronización nocturna)
+            </div>
+            {resultadosCatalogo.length === 0 ? (
+              <div className="text-sm text-gray-400 py-4 text-center">No se encontraron productos con stock.</div>
+            ) : (
+              <div className="max-h-96 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="text-left py-2 px-3 text-gray-500 font-medium">Marca</th>
+                      <th className="text-left py-2 px-3 text-gray-500 font-medium">Producto</th>
+                      <th className="text-center py-2 px-3 text-gray-500 font-medium">Stock</th>
+                      <th className="text-right py-2 px-3 text-gray-500 font-medium">Precio</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {resultadosCatalogo.map(p => (
+                      <tr key={p.sku} className="border-b border-gray-50 hover:bg-gray-50">
+                        <td className="py-2 px-3 text-gray-600">{p.marca || '—'}</td>
+                        <td className="py-2 px-3 font-medium text-gray-800">{p.nombre}</td>
+                        <td className="py-2 px-3 text-center text-gray-500">{p.stock}</td>
+                        <td className="py-2 px-3 text-right font-bold text-gray-900">{formatMoneda(p.precio)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Entrada */}
       <div className="card space-y-5">
