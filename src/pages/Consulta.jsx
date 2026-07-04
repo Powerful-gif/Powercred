@@ -22,13 +22,14 @@ export default function Consulta() {
   const [modoEntrega, setModoEntrega] = useState('0')
   const [pctCustom, setPctCustom] = useState('')
   const [rubro, setRubro] = useState('general')
-  const [abiertos, setAbiertos] = useState({ mensual: true, quincenal: false, semanal: false, tarjeta: false })
+  const [abiertos, setAbiertos] = useState({ powercred: false, mensual: true, quincenal: false, semanal: false, tarjeta: false })
   const [ean, setEan] = useState('')
   const [producto, setProducto] = useState(null)
   const [buscando, setBuscando] = useState(false)
   const [errorBusqueda, setErrorBusqueda] = useState('')
 
-  const TASAS_TARJETA = { 3: 0, 6: 0, 9: 15, 12: 20 }
+  const TASAS_TARJETA = { 3: 0, 5: 0, 6: 0, 9: 15, 12: 20 }
+  const NOTA_TARJETA = { 5: 'Solo Naranja' }
 
   async function handleBuscarEan() {
     const valor = ean.trim()
@@ -50,6 +51,7 @@ export default function Consulta() {
 
   const pct = modoEntrega === 'custom' ? null : parseFloat(modoEntrega)
   const precioNum = parseFloat(precio) || 0
+  const precioEfectivo = precioNum * 0.9
   const entrega = modoEntrega === 'custom'
     ? (parseFloat(pctCustom) || 0)
     : Math.round(precioNum * pct / 100)
@@ -91,6 +93,7 @@ export default function Consulta() {
             </div>
             <div style={{ display: 'flex', gap: '20px', background: '#f5f5f5', padding: '10px 14px', borderRadius: '8px', marginBottom: '18px', fontSize: '13px' }}>
               <span><strong>Precio:</strong> {formatMoneda(precioNum)}</span>
+              <span><strong>Efectivo (10% off):</strong> {formatMoneda(precioEfectivo)}</span>
               {entrega > 0 && <span><strong>Entrega{pct ? ` (${pct}%)` : ''}:</strong> {formatMoneda(entrega)}</span>}
               <span><strong>Financia:</strong> {formatMoneda(aFinanciar)}</span>
             </div>
@@ -134,7 +137,9 @@ export default function Consulta() {
                       const { cuota } = calcularCuota(aFinanciar, tasa, Number(n))
                       return (
                         <tr key={n}>
-                          <td style={{ padding: '7px 10px', border: '1px solid #ddd', fontWeight: 'bold' }}>{n} cuotas</td>
+                          <td style={{ padding: '7px 10px', border: '1px solid #ddd', fontWeight: 'bold' }}>
+                            {n} cuotas{NOTA_TARJETA[n] ? ` (${NOTA_TARJETA[n]})` : ''}
+                          </td>
                           <td style={{ padding: '7px 10px', border: '1px solid #ddd', textAlign: 'center', fontWeight: 'bold', fontSize: '15px' }}>
                             {formatMoneda(cuota)}
                           </td>
@@ -214,6 +219,11 @@ export default function Consulta() {
               min="0"
             />
           </div>
+          {precioNum > 0 && (
+            <div className="text-sm text-green-700 mt-1">
+              Precio en efectivo (10% off): <span className="font-semibold">{formatMoneda(precioEfectivo)}</span>
+            </div>
+          )}
         </div>
 
         <div>
@@ -271,75 +281,97 @@ export default function Consulta() {
         </div>
       </div>
 
-      {/* Rubro */}
+      {/* PowerCred */}
       {hayImporte && (
-        <div className="card py-4">
-          <label className="label mb-3">Rubro</label>
-          <div className="flex gap-3">
-            {[
-              { val: 'general',   label: 'General',              desc: 'Tasas estándar del sistema' },
-              { val: 'colchones', label: 'Colchones y Sillones', desc: 'Sin interés hasta 6 meses' },
-            ].map(({ val, label, desc }) => (
-              <button
-                key={val}
-                onClick={() => setRubro(val)}
-                className={`flex-1 py-3 px-4 rounded-xl border-2 text-left transition-colors ${
-                  rubro === val ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="font-semibold text-sm">{label}</div>
-                <div className="text-xs text-gray-400 mt-0.5">{desc}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Secciones desplegables */}
-      {hayImporte && Object.entries(PLANES).map(([peri, { label, opciones }]) => (
-        <div key={peri} className="card p-0 overflow-hidden">
+        <div className="card p-0 overflow-hidden">
           <button
-            onClick={() => toggle(peri)}
+            onClick={() => toggle('powercred')}
             className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors"
           >
-            <span className="font-bold text-gray-800">{label}</span>
+            <span className="font-bold text-gray-800">PowerCred</span>
             <svg
-              className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${abiertos[peri] ? 'rotate-180' : ''}`}
+              className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${abiertos.powercred ? 'rotate-180' : ''}`}
               fill="none" stroke="currentColor" viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
 
-          {abiertos[peri] && (
-            <div className="border-t border-gray-100">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="text-left py-2 px-5 text-gray-500 font-medium">Cuotas</th>
-                    <th className="text-center py-2 px-3 text-gray-500 font-medium">Tasa</th>
-                    <th className="text-center py-2 px-5 text-gray-500 font-medium">Valor por cuota</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filas(peri, opciones).map(({ n, tasa, cuota }) => (
-                    <tr key={n} className="border-b border-gray-50 hover:bg-orange-50 transition-colors">
-                      <td className="py-3 px-5 font-bold text-gray-700">{n} cuotas</td>
-                      <td className="py-3 px-3 text-center">
-                        {tasa === 0
-                          ? <span className="text-green-600 font-semibold text-xs">sin interés</span>
-                          : <span className="text-gray-400 text-xs">{tasa}%</span>
-                        }
-                      </td>
-                      <td className="py-3 px-5 text-center font-bold text-gray-900 text-lg">{formatMoneda(cuota)}</td>
-                    </tr>
+          {abiertos.powercred && (
+            <div className="border-t border-gray-100 p-4 space-y-4">
+              {/* Rubro */}
+              <div>
+                <label className="label mb-3">Rubro</label>
+                <div className="flex gap-3">
+                  {[
+                    { val: 'general',   label: 'General',              desc: 'Tasas estándar del sistema' },
+                    { val: 'colchones', label: 'Colchones y Sillones', desc: 'Sin interés hasta 6 meses' },
+                  ].map(({ val, label, desc }) => (
+                    <button
+                      key={val}
+                      onClick={() => setRubro(val)}
+                      className={`flex-1 py-3 px-4 rounded-xl border-2 text-left transition-colors ${
+                        rubro === val ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="font-semibold text-sm">{label}</div>
+                      <div className="text-xs text-gray-400 mt-0.5">{desc}</div>
+                    </button>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              </div>
+
+              {/* Sub-secciones por período */}
+              <div className="space-y-3">
+                {Object.entries(PLANES).map(([peri, { label, opciones }]) => (
+                  <div key={peri} className="border border-gray-200 rounded-xl overflow-hidden">
+                    <button
+                      onClick={() => toggle(peri)}
+                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+                    >
+                      <span className="font-semibold text-gray-700 text-sm">{label}</span>
+                      <svg
+                        className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${abiertos[peri] ? 'rotate-180' : ''}`}
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {abiertos[peri] && (
+                      <div className="border-t border-gray-100">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-gray-50 border-b border-gray-200">
+                              <th className="text-left py-2 px-5 text-gray-500 font-medium">Cuotas</th>
+                              <th className="text-center py-2 px-3 text-gray-500 font-medium">Tasa</th>
+                              <th className="text-center py-2 px-5 text-gray-500 font-medium">Valor por cuota</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filas(peri, opciones).map(({ n, tasa, cuota }) => (
+                              <tr key={n} className="border-b border-gray-50 hover:bg-orange-50 transition-colors">
+                                <td className="py-3 px-5 font-bold text-gray-700">{n} cuotas</td>
+                                <td className="py-3 px-3 text-center">
+                                  {tasa === 0
+                                    ? <span className="text-green-600 font-semibold text-xs">sin interés</span>
+                                    : <span className="text-gray-400 text-xs">{tasa}%</span>
+                                  }
+                                </td>
+                                <td className="py-3 px-5 text-center font-bold text-gray-900 text-lg">{formatMoneda(cuota)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
-      ))}
+      )}
 
       {/* Tarjeta de crédito */}
       {hayImporte && (
@@ -380,10 +412,17 @@ export default function Consulta() {
                       <tr key={n} className="border-b border-gray-50 hover:bg-blue-50 transition-colors">
                         <td className="py-3 px-5 font-bold text-gray-700">{n} cuotas</td>
                         <td className="py-3 px-3 text-center">
-                          {tasa === 0
-                            ? <span className="text-green-600 font-semibold text-xs">sin interés</span>
-                            : <span className="text-gray-400 text-xs">{tasa}%</span>
-                          }
+                          <div className="flex items-center justify-center gap-1.5">
+                            {tasa === 0
+                              ? <span className="text-green-600 font-semibold text-xs">sin interés</span>
+                              : <span className="text-gray-400 text-xs">{tasa}%</span>
+                            }
+                            {NOTA_TARJETA[n] && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-orange-50 text-orange-600">
+                                {NOTA_TARJETA[n]}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3 px-5 text-center font-bold text-gray-900 text-lg">{formatMoneda(cuota)}</td>
                       </tr>
