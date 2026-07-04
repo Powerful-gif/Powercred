@@ -65,6 +65,28 @@ export default function Consulta() {
     opcionesRubros.filter(r => r.rubro === rubroCatSel).map(r => r.sub_rubro)
   )].filter(Boolean).sort()
 
+  async function elegirProducto(p) {
+    setPrecio(String(p.precio)) // precio de la lista, se confirma/actualiza abajo con la búsqueda completa
+    setEan('')
+    setErrorBusqueda('')
+    setBuscando(true)
+    setProducto(null)
+    document.getElementById('calculadora')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    try {
+      const data = await buscarPorEan(p.sku)
+      setProducto(data)
+      setPrecio(String(data.precio_pvp))
+    } catch (e) {
+      // si falla traer la ficha completa, dejamos al menos los datos básicos que ya teníamos
+      setProducto({
+        sku: p.sku, nombre: p.nombre, marca: p.marca, rubro: p.rubro,
+        sub_rubro: p.sub_rubro, stock: p.stock, descripcion_html: '', fuente_descripcion: null,
+      })
+    } finally {
+      setBuscando(false)
+    }
+  }
+
   async function handleBuscarCatalogo() {
     setBuscandoCatalogo(true)
     setErrorCatalogo('')
@@ -265,6 +287,7 @@ export default function Consulta() {
                       <th className="text-left py-2 px-3 text-gray-500 font-medium">Producto</th>
                       <th className="text-center py-2 px-3 text-gray-500 font-medium">Stock</th>
                       <th className="text-right py-2 px-3 text-gray-500 font-medium">Precio</th>
+                      <th className="py-2 px-3"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -274,6 +297,14 @@ export default function Consulta() {
                         <td className="py-2 px-3 font-medium text-gray-800">{p.nombre}</td>
                         <td className="py-2 px-3 text-center text-gray-500">{p.stock}</td>
                         <td className="py-2 px-3 text-right font-bold text-gray-900">{formatMoneda(p.precio)}</td>
+                        <td className="py-2 px-3 text-right">
+                          <button
+                            onClick={() => elegirProducto(p)}
+                            className="px-3 py-1 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                          >
+                            Elegir
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -285,7 +316,7 @@ export default function Consulta() {
       </div>
 
       {/* Entrada */}
-      <div className="card space-y-5">
+      <div id="calculadora" className="card space-y-5">
         <h2 className="font-bold text-gray-800 text-lg">Calculadora de Financiación</h2>
 
         <div>
