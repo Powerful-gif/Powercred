@@ -156,11 +156,11 @@ export default function Consulta() {
         <h2 className="font-bold text-gray-800 text-lg">Calculadora de Financiación</h2>
 
         <div>
-          <label className="label">Código de barras</label>
+          <label className="label">Código de barras o SKU</label>
           <input
             type="text"
             className="input-field text-lg"
-            placeholder="Escaneá el código de barras..."
+            placeholder="Escaneá el código de barras o escribí el SKU..."
             value={ean}
             onChange={e => setEan(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleBuscarEan() }}

@@ -89,14 +89,9 @@ export default async function handler(req, res) {
 
   let codItem
   try {
-    codItem = await buscarSkuPorEan(ean)
+    codItem = (await buscarSkuPorEan(ean)) || ean // si no está en el índice, probamos como SKU directo
   } catch (e) {
     return res.status(502).json({ error: 'Error consultando el índice de productos.' })
-  }
-  if (!codItem) {
-    return res.status(404).json({
-      error: `El código ${ean} no está en el índice. Puede ser un producto nuevo — avisá para resincronizar el catálogo.`,
-    })
   }
 
   let raw
@@ -106,7 +101,9 @@ export default async function handler(req, res) {
     return res.status(502).json({ error: 'Error consultando Dux.' })
   }
   if (!raw) {
-    return res.status(404).json({ error: `El SKU ${codItem} ya no existe en Dux.` })
+    return res.status(404).json({
+      error: `No se encontró el producto '${ean}' (probado como EAN y como SKU).`,
+    })
   }
 
   const nombre = raw.item || ''
