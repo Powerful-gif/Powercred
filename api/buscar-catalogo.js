@@ -3,7 +3,20 @@ import { createClient } from '@supabase/supabase-js'
 // Si se completa esta lista, el buscador por rubro solo va a mostrar estos
 // (útil para no marear con categorías que no interesa vender por acá).
 // Dejar vacío ([]) para mostrar todos los rubros disponibles.
-const RUBROS_HABILITADOS = []
+const RUBROS_HABILITADOS = [
+  'CLIMATIZACION',
+  'COCINAS Y HORNOS',
+  'COLCHONES Y SOMMIERS',
+  'CORTADORAS DE CESPED',
+  'CUIDADO PERSONAL',
+  'HELADERAS Y FREEZERS',
+  'LAVADO',
+  'PEQUEÑOS COCINA',
+  'PEQUEÑOS HOGAR',
+  'TERMOTANQUES',
+  'TV, AUDIO Y VIDEO',
+  'TECNOLOGIA',
+]
 
 function supa() {
   return createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY)
