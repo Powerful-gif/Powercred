@@ -3,6 +3,13 @@ import { useConfig } from '../context/ConfigContext'
 import { calcularCuota } from '../lib/calculos'
 import { formatMoneda } from '../lib/formatters'
 
+async function buscarPorEan(ean) {
+  const r = await fetch(`/api/precio-por-ean?ean=${encodeURIComponent(ean)}`)
+  const data = await r.json()
+  if (!r.ok) throw new Error(data.error || 'Error desconocido')
+  return data
+}
+
 const PLANES = {
   mensual:   { label: 'Mensual',   opciones: [3, 6, 9, 12] },
   quincenal: { label: 'Quincenal', opciones: [4, 6, 8, 10, 12] },
@@ -16,8 +23,30 @@ export default function Consulta() {
   const [pctCustom, setPctCustom] = useState('')
   const [rubro, setRubro] = useState('general')
   const [abiertos, setAbiertos] = useState({ mensual: true, quincenal: false, semanal: false, tarjeta: false })
+  const [ean, setEan] = useState('')
+  const [producto, setProducto] = useState(null)
+  const [buscando, setBuscando] = useState(false)
+  const [errorBusqueda, setErrorBusqueda] = useState('')
 
   const TASAS_TARJETA = { 3: 0, 6: 0, 9: 15, 12: 20 }
+
+  async function handleBuscarEan() {
+    const valor = ean.trim()
+    if (!valor) return
+    setBuscando(true)
+    setErrorBusqueda('')
+    setProducto(null)
+    try {
+      const data = await buscarPorEan(valor)
+      setProducto(data)
+      setPrecio(String(data.precio_pvp))
+    } catch (e) {
+      setErrorBusqueda(e.message)
+    } finally {
+      setBuscando(false)
+      setEan('')
+    }
+  }
 
   const pct = modoEntrega === 'custom' ? null : parseFloat(modoEntrega)
   const precioNum = parseFloat(precio) || 0
@@ -125,6 +154,52 @@ export default function Consulta() {
       {/* Entrada */}
       <div className="card space-y-5">
         <h2 className="font-bold text-gray-800 text-lg">Calculadora de Financiación</h2>
+
+        <div>
+          <label className="label">Código de barras</label>
+          <input
+            type="text"
+            className="input-field text-lg"
+            placeholder="Escaneá el código de barras..."
+            value={ean}
+            onChange={e => setEan(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleBuscarEan() }}
+            autoFocus
+            autoComplete="off"
+            inputMode="numeric"
+          />
+          {buscando && <div className="text-sm text-gray-400 mt-1">Buscando...</div>}
+          {errorBusqueda && <div className="text-sm text-red-600 mt-1">{errorBusqueda}</div>}
+        </div>
+
+        {producto && (
+          <div className="p-4 bg-gray-50 rounded-xl space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-semibold text-gray-800">{producto.nombre}</div>
+              {producto.fuente_descripcion && (
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                  producto.fuente_descripcion === 'ia' ? 'bg-indigo-50 text-indigo-700' : 'bg-green-50 text-green-700'
+                }`}>
+                  {producto.fuente_descripcion === 'ia' ? 'Generado por IA' : 'Ficha de la tienda'}
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-gray-500 flex flex-wrap gap-3">
+              <span>SKU {producto.sku}</span>
+              {producto.marca && <span>Marca: {producto.marca}</span>}
+              {producto.rubro && <span>{producto.rubro}{producto.sub_rubro ? ` / ${producto.sub_rubro}` : ''}</span>}
+              <span className={producto.stock > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                Stock: {producto.stock}
+              </span>
+            </div>
+            {producto.descripcion_html && (
+              <div
+                className="text-sm text-gray-700"
+                dangerouslySetInnerHTML={{ __html: producto.descripcion_html }}
+              />
+            )}
+          </div>
+        )}
 
         <div>
           <label className="label">Precio del artículo</label>
