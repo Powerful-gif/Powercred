@@ -162,17 +162,25 @@ export default function Consulta() {
 
         <div>
           <label className="label">Código de barras o SKU</label>
-          <input
-            type="text"
-            className="input-field text-lg"
-            placeholder="Escaneá el código de barras o escribí el SKU..."
-            value={ean}
-            onChange={e => setEan(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleBuscarEan() }}
-            autoFocus
-            autoComplete="off"
-            inputMode="numeric"
-          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              className="input-field text-lg flex-1"
+              placeholder="Escaneá el código de barras o escribí el SKU..."
+              value={ean}
+              onChange={e => setEan(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleBuscarEan() }}
+              autoFocus
+              autoComplete="off"
+            />
+            <button
+              onClick={handleBuscarEan}
+              disabled={buscando}
+              className="px-5 rounded-lg bg-gray-800 text-white font-medium disabled:opacity-50"
+            >
+              Buscar
+            </button>
+          </div>
           {buscando && <div className="text-sm text-gray-400 mt-1">Buscando...</div>}
           {errorBusqueda && <div className="text-sm text-red-600 mt-1">{errorBusqueda}</div>}
         </div>
