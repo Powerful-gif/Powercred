@@ -617,7 +617,7 @@ export default function NuevoCredito() {
                 </button>
               </div>
               <div className="p-3 border-t border-gray-100">
-                <label className="label text-xs">Entrega inicial (opcional)</label>
+                <label className="label text-xs">Entrega (opcional)</label>
                 <div className="relative w-48">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">$</span>
                   <input
