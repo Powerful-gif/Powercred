@@ -14,6 +14,13 @@ const CUOTAS_MENSUAL = [3, 6, 9, 12]
 const CUOTAS_QUINCENAL = [4, 6, 8, 10, 12]
 const CUOTAS_SEMANAL = [4, 8, 12, 16, 20, 24]
 
+async function buscarProductoPorEan(ean) {
+  const r = await fetch(`/api/precio-por-ean?ean=${encodeURIComponent(ean)}`)
+  const data = await r.json()
+  if (!r.ok) throw new Error(data.error || 'Error desconocido')
+  return data
+}
+
 export default function NuevoCredito() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -46,6 +53,56 @@ export default function NuevoCredito() {
   const [cuotasPersonalizada, setCuotasPersonalizada] = useState('')
   const [tasaPersonalizada, setTasaPersonalizada] = useState('')
   const [periodicidadPersonalizada, setPeriodicidadPersonalizada] = useState('mensual')
+
+  const [eanProducto, setEanProducto] = useState('')
+  const [itemsProductos, setItemsProductos] = useState([])
+  const [buscandoProducto, setBuscandoProducto] = useState(false)
+  const [errorProducto, setErrorProducto] = useState('')
+
+  const subtotalProductos = itemsProductos.reduce(
+    (acc, it) => acc + (parseFloat(it.precio) || 0) * (parseInt(it.cantidad) || 0),
+    0
+  )
+
+  useEffect(() => {
+    if (itemsProductos.length > 0) setImporte(String(subtotalProductos))
+  }, [itemsProductos])
+
+  async function handleBuscarProducto() {
+    const valor = eanProducto.trim()
+    if (!valor) return
+    setBuscandoProducto(true)
+    setErrorProducto('')
+    try {
+      const data = await buscarProductoPorEan(valor)
+      setItemsProductos(prev => {
+        const idx = prev.findIndex(it => it.sku === data.sku)
+        if (idx >= 0) {
+          const next = [...prev]
+          next[idx] = { ...next[idx], cantidad: next[idx].cantidad + 1 }
+          return next
+        }
+        return [...prev, { sku: data.sku, nombre: data.nombre, precio: data.precio_pvp, cantidad: 1, stock: data.stock }]
+      })
+    } catch (e) {
+      setErrorProducto(e.message)
+    } finally {
+      setBuscandoProducto(false)
+      setEanProducto('')
+    }
+  }
+
+  function actualizarCantidadProducto(sku, cantidad) {
+    setItemsProductos(prev => prev.map(it => it.sku === sku ? { ...it, cantidad: Math.max(1, cantidad) } : it))
+  }
+
+  function actualizarPrecioProducto(sku, precio) {
+    setItemsProductos(prev => prev.map(it => it.sku === sku ? { ...it, precio } : it))
+  }
+
+  function quitarProducto(sku) {
+    setItemsProductos(prev => prev.filter(it => it.sku !== sku))
+  }
 
   useEffect(() => {
     const clienteId = searchParams.get('cliente')
@@ -434,6 +491,98 @@ export default function NuevoCredito() {
           </div>
         )}
 
+        {/* Buscar productos por código de barras / SKU */}
+        <div>
+          <label className="label">Buscar productos por código de barras / SKU (opcional)</label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              className="input-field flex-1"
+              placeholder="Escaneá el código de barras o escribí el SKU..."
+              value={eanProducto}
+              onChange={e => setEanProducto(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleBuscarProducto() } }}
+              autoComplete="off"
+              inputMode="numeric"
+            />
+            <button type="button" onClick={handleBuscarProducto} className="btn-secondary px-5">
+              Agregar
+            </button>
+          </div>
+          {buscandoProducto && <div className="text-sm text-gray-400 mt-1">Buscando...</div>}
+          {errorProducto && <div className="text-sm text-red-600 mt-1">{errorProducto}</div>}
+
+          {itemsProductos.length > 0 && (
+            <div className="mt-3 border border-gray-200 rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="text-left py-2 px-3 text-gray-500 font-medium">Producto</th>
+                    <th className="text-center py-2 px-2 text-gray-500 font-medium w-20">Cant.</th>
+                    <th className="text-center py-2 px-2 text-gray-500 font-medium w-32">Precio unit.</th>
+                    <th className="text-center py-2 px-2 text-gray-500 font-medium w-32">Subtotal</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {itemsProductos.map(it => (
+                    <tr key={it.sku} className="border-b border-gray-50">
+                      <td className="py-2 px-3">
+                        <div className="font-medium text-gray-800">{it.nombre}</div>
+                        <div className="text-xs text-gray-400">
+                          SKU {it.sku}
+                          {typeof it.stock === 'number' && (
+                            <span className={it.stock > 0 ? 'text-green-600' : 'text-red-600'}> · Stock: {it.stock}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2 px-2">
+                        <input
+                          type="number"
+                          className="input-field text-center py-1 text-sm"
+                          value={it.cantidad}
+                          min="1"
+                          onChange={e => actualizarCantidadProducto(it.sku, parseInt(e.target.value) || 1)}
+                        />
+                      </td>
+                      <td className="py-2 px-2">
+                        <input
+                          type="number"
+                          className="input-field text-center py-1 text-sm"
+                          value={it.precio}
+                          min="0"
+                          onChange={e => actualizarPrecioProducto(it.sku, parseFloat(e.target.value) || 0)}
+                        />
+                      </td>
+                      <td className="py-2 px-2 text-center font-semibold text-gray-800">
+                        {formatMoneda((parseFloat(it.precio) || 0) * (parseInt(it.cantidad) || 0))}
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <button type="button" onClick={() => quitarProducto(it.sku)} className="text-gray-400 hover:text-red-500">
+                          ✕
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-gray-50">
+                    <td colSpan={3} className="py-2 px-3 text-right font-semibold text-gray-600">Total productos</td>
+                    <td className="py-2 px-2 text-center font-bold text-blue-800">{formatMoneda(subtotalProductos)}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+              <div className="px-3 py-2 bg-blue-50 text-xs text-blue-700 flex items-center justify-between gap-2">
+                <span>El importe a financiar se completa automáticamente con este total.</span>
+                <button type="button" onClick={() => setItemsProductos([])} className="underline hover:text-blue-900 whitespace-nowrap">
+                  Quitar y cargar manual
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Importe */}
         <div>
           <label className="label">Importe a financiar *</label>
@@ -441,13 +590,17 @@ export default function NuevoCredito() {
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">$</span>
             <input
               type="number"
-              className="input-field pl-7 text-lg font-semibold"
+              className="input-field pl-7 text-lg font-semibold disabled:bg-gray-100 disabled:text-gray-500"
               placeholder="0,00"
               value={importe}
               onChange={e => setImporte(e.target.value)}
               min="0" step="0.01"
+              disabled={itemsProductos.length > 0}
             />
           </div>
+          {itemsProductos.length > 0 && (
+            <div className="text-xs text-gray-400 mt-1">Calculado automáticamente desde los productos cargados arriba.</div>
+          )}
         </div>
 
         {/* Periodicidad (oculta en modo personalizado) */}

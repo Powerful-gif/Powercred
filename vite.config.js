@@ -24,7 +24,9 @@ export default defineConfig({
           const cuit = new URLSearchParams(path.split('?')[1]).get('cuit')
           return `/CentralDeDeudores/v1.0/ChequesRechazados/${cuit}`
         }
-      }
+      },
+      '/api/precio-por-ean': 'http://localhost:3001',
+      '/api/buscar-catalogo': 'http://localhost:3001'
     }
   }
 })

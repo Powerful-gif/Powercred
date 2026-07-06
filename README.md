@@ -90,6 +90,7 @@ src/
 │   ├── Documentos/        # Tarjeta de cuotas y pagaré para imprimir
 │   └── Layout/            # Sidebar, Header, Layout
 ├── context/
+│   ├── AuthContext.jsx    # Contexto de autenticación/sesión
 │   └── ConfigContext.jsx  # Contexto global de configuración
 ├── lib/
 │   ├── calculos.js        # Lógica de cálculos (cuotas, TEA, mora, fechas)
@@ -100,13 +101,25 @@ src/
 │   ├── Clientes.jsx       # Módulo de clientes
 │   ├── Cobros.jsx         # Módulo de cobros
 │   ├── Configuracion.jsx  # Panel de configuración
+│   ├── Consulta.jsx       # Calculadora de financiación + búsqueda por EAN/SKU
 │   ├── Creditos.jsx       # Módulo de créditos
-│   └── Reportes.jsx       # Módulo de reportes
+│   ├── Reportes.jsx       # Módulo de reportes
+│   ├── Autorizacion.jsx   # Pantalla de autorización de acceso
+│   ├── Importar.jsx       # Importación de datos
+│   └── Login.jsx          # Pantalla de inicio de sesión
 ├── App.jsx                # Routing principal
 ├── index.css              # Estilos globales con TailwindCSS
 └── main.jsx               # Punto de entrada
+api/
+├── precio-por-ean.js      # Busca precio/stock por EAN o SKU (Dux + Tienda Nube + IA)
+├── buscar-catalogo.js     # Búsqueda por rubro/sub-rubro en el catálogo
+├── bcra-cheques.js        # Consulta de cheques rechazados (BCRA)
+└── bcra-deudas.js         # Consulta de situación crediticia (BCRA)
 supabase/
-└── schema.sql             # Schema de base de datos
+├── schema.sql                   # Schema base de datos
+├── migration_catalogo_dux.sql   # Migración: catálogo sincronizado desde Dux
+├── migration_indice_ean.sql     # Migración: índice EAN → SKU
+└── migration_metodo_pago.sql    # Migración: método de pago
 ```
 
 ---
