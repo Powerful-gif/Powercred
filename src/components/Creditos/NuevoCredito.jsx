@@ -58,6 +58,7 @@ export default function NuevoCredito() {
   const [itemsProductos, setItemsProductos] = useState([])
   const [buscandoProducto, setBuscandoProducto] = useState(false)
   const [errorProducto, setErrorProducto] = useState('')
+  const [avisoDux, setAvisoDux] = useState(false)
 
   const subtotalProductos = itemsProductos.reduce(
     (acc, it) => acc + (parseFloat(it.precio) || 0) * (parseInt(it.cantidad) || 0),
@@ -102,6 +103,23 @@ export default function NuevoCredito() {
 
   function quitarProducto(sku) {
     setItemsProductos(prev => prev.filter(it => it.sku !== sku))
+  }
+
+  async function facturarEnDux(cliente, productos) {
+    try {
+      const r = await fetch('/api/crear-comprobante-dux', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cliente: { nombre: cliente.nombre, apellido: cliente.apellido, dni: cliente.dni },
+          productos: productos.map(p => ({ sku: p.sku, cantidad: p.cantidad, precio: p.precio })),
+        }),
+      })
+      if (!r.ok) return { ok: false }
+      return { ok: true }
+    } catch {
+      return { ok: false }
+    }
   }
 
   useEffect(() => {
@@ -261,6 +279,11 @@ export default function NuevoCredito() {
 
     const { data: cuotasData } = await supabase.from('cuotas').insert(cuotas).select()
 
+    if (itemsProductos.length > 0) {
+      const resultado = await facturarEnDux(clienteEncontrado, itemsProductos)
+      if (!resultado.ok) setAvisoDux(true)
+    }
+
     setCreditoGuardado({ ...credData, clientes: clienteEncontrado })
     setCuotasGuardadas(cuotasData || cuotas)
     setGuardando(false)
@@ -325,6 +348,13 @@ export default function NuevoCredito() {
           {creditoGuardado.numero_credito} · {clienteEncontrado?.apellido}, {clienteEncontrado?.nombre}
         </p>
       </div>
+
+      {avisoDux && (
+        <div className="bg-orange-50 border border-orange-300 rounded-xl p-4 text-sm text-orange-800">
+          <strong>Atención:</strong> el crédito se guardó bien, pero no se pudo generar el comprobante
+          de venta en Dux automáticamente. Cargalo a mano en Dux con los productos de este crédito.
+        </div>
+      )}
 
       <div className="card">
         <h3 className="font-semibold mb-4">Documentos para imprimir</h3>
