@@ -285,6 +285,7 @@ export default function Consulta() {
                     <tr className="bg-gray-50 border-b border-gray-200">
                       <th className="text-left py-2 px-3 text-gray-500 font-medium">Marca</th>
                       <th className="text-left py-2 px-3 text-gray-500 font-medium">Producto</th>
+                      <th className="text-left py-2 px-3 text-gray-500 font-medium">SKU</th>
                       <th className="text-center py-2 px-3 text-gray-500 font-medium">Stock</th>
                       <th className="text-right py-2 px-3 text-gray-500 font-medium">Precio</th>
                       <th className="py-2 px-3"></th>
@@ -295,6 +296,7 @@ export default function Consulta() {
                       <tr key={p.sku} className="border-b border-gray-50 hover:bg-gray-50">
                         <td className="py-2 px-3 text-gray-600">{p.marca || '—'}</td>
                         <td className="py-2 px-3 font-medium text-gray-800">{p.nombre}</td>
+                        <td className="py-2 px-3 text-gray-400 text-xs">{p.sku}</td>
                         <td className="py-2 px-3 text-center text-gray-500">{p.stock}</td>
                         <td className="py-2 px-3 text-right font-bold text-gray-900">{formatMoneda(p.precio)}</td>
                         <td className="py-2 px-3 text-right">
