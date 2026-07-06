@@ -59,15 +59,19 @@ export default function NuevoCredito() {
   const [buscandoProducto, setBuscandoProducto] = useState(false)
   const [errorProducto, setErrorProducto] = useState('')
   const [avisoDux, setAvisoDux] = useState(false)
+  const [entregaInicial, setEntregaInicial] = useState('')
 
   const subtotalProductos = itemsProductos.reduce(
     (acc, it) => acc + (parseFloat(it.precio) || 0) * (parseInt(it.cantidad) || 0),
     0
   )
+  const entregaInicialNum = parseFloat(entregaInicial) || 0
 
   useEffect(() => {
-    if (itemsProductos.length > 0) setImporte(String(subtotalProductos))
-  }, [itemsProductos])
+    if (itemsProductos.length > 0) {
+      setImporte(String(Math.max(0, subtotalProductos - entregaInicialNum)))
+    }
+  }, [itemsProductos, entregaInicialNum])
 
   async function handleBuscarProducto() {
     const valor = eanProducto.trim()
@@ -232,6 +236,9 @@ export default function NuevoCredito() {
     }
     const numeroCredito = `CRED-${String(siguienteNum).padStart(4, '0')}`
 
+    const notaEntrega = entregaInicialNum > 0 ? `Entrega: ${formatMoneda(entregaInicialNum)}` : ''
+    const observacionesFinal = [observaciones.trim(), notaEntrega].filter(Boolean).join(' · ') || null
+
     const credito = {
       numero_credito: numeroCredito,
       cliente_id: clienteEncontrado.id,
@@ -249,7 +256,7 @@ export default function NuevoCredito() {
       estado: 'activo',
       vendedor: vendedor || null,
       cobrador: cobrador || null,
-      observaciones: observaciones || null
+      observaciones: observacionesFinal
     }
 
     const { data: credData, error } = await supabase
@@ -608,6 +615,25 @@ export default function NuevoCredito() {
                 <button type="button" onClick={() => setItemsProductos([])} className="underline hover:text-blue-900 whitespace-nowrap">
                   Quitar y cargar manual
                 </button>
+              </div>
+              <div className="p-3 border-t border-gray-100">
+                <label className="label text-xs">Entrega inicial (opcional)</label>
+                <div className="relative w-48">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">$</span>
+                  <input
+                    type="number"
+                    className="input-field pl-7 text-sm"
+                    placeholder="0"
+                    value={entregaInicial}
+                    onChange={e => setEntregaInicial(e.target.value)}
+                    min="0"
+                  />
+                </div>
+                {entregaInicialNum > 0 && (
+                  <div className="text-xs text-gray-400 mt-1">
+                    Se descuenta del total — se financian {formatMoneda(Math.max(0, subtotalProductos - entregaInicialNum))}.
+                  </div>
+                )}
               </div>
             </div>
           )}
