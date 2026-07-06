@@ -6,6 +6,10 @@ const ID_SUCURSAL_EMPRESA = 1
 const NRO_PTO_VTA = '7'
 const ID_PERSONAL = 3789678 // BARCO, JULIAN
 
+// Los precios del sistema son de venta al público (con IVA incluido),
+// pero la API de Dux espera el precio neto y le suma el IVA ella misma.
+const IVA = 1.21
+
 function fechaDDMMYYYY() {
   const d = new Date()
   const dd = String(d.getDate()).padStart(2, '0')
@@ -34,7 +38,7 @@ export default async function handler(req, res) {
       cod_item: p.sku,
       ctd: Number(p.cantidad),
       porc_desc: '0',
-      precio_uni: Number(p.precio),
+      precio_uni: Number(p.precio) / IVA,
     })),
     tipo_entrega: 'ENTREGA_INMEDIATA',
     tipo_comp: 'COMPROBANTE_VENTA',
