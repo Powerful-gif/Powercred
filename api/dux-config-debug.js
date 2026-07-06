@@ -21,5 +21,10 @@ export default async function handler(req, res) {
   if (que === 'personales') {
     return res.status(200).json(await get('/personales'))
   }
-  return res.status(400).json({ error: 'Parámetro "que" inválido. Usar: empresas, sucursales o personales.' })
+  if (que === 'estadoFactura') {
+    const idProceso = req.query.idProceso
+    if (!idProceso) return res.status(400).json({ error: 'Falta idProceso' })
+    return res.status(200).json(await get(`/obtenerEstadoFactura?idProceso=${idProceso}`))
+  }
+  return res.status(400).json({ error: 'Parámetro "que" inválido. Usar: empresas, sucursales, personales o estadoFactura.' })
 }
