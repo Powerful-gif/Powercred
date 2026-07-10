@@ -13,6 +13,7 @@ export default function PantallaCobranza() {
   const { config } = useConfig()
   const { isAdmin, userNombre } = useAuth()
   const [busqueda, setBusqueda] = useState('')
+  const [resultadosBusqueda, setResultadosBusqueda] = useState([])
   const [clienteEncontrado, setClienteEncontrado] = useState(null)
   const [creditosConCuotas, setCreditosConCuotas] = useState([])
   const [loading, setLoading] = useState(false)
@@ -43,6 +44,7 @@ export default function PantallaCobranza() {
     setBusquedaError('')
     setClienteEncontrado(null)
     setCreditosConCuotas([])
+    setResultadosBusqueda([])
     if (!busqueda.trim()) return
     setLoading(true)
     const q = busqueda.trim()
@@ -50,7 +52,7 @@ export default function PantallaCobranza() {
       .from('clientes')
       .select('*')
       .or(`dni.eq.${q},codigo.ilike.${q},nombre.ilike.%${q}%,apellido.ilike.%${q}%`)
-      .limit(5)
+      .limit(10)
 
     if (isAdmin) {
       clienteQuery = clienteQuery.neq('propietario', 'Carlos')
@@ -64,11 +66,16 @@ export default function PantallaCobranza() {
       setBusquedaError('Cliente no encontrado')
       return
     }
-    await seleccionarCliente(data[0])
+    if (data.length === 1) {
+      await seleccionarCliente(data[0])
+      return
+    }
+    setResultadosBusqueda(data)
   }
 
   async function seleccionarCliente(cli) {
     setLoading(true)
+    setResultadosBusqueda([])
     setClienteEncontrado(cli)
     setTieneIncobrables(false)
     const { data: incobrables } = await supabase
@@ -213,6 +220,28 @@ export default function PantallaCobranza() {
         </div>
         {busquedaError && <p className="text-sm text-red-600 mt-2">{busquedaError}</p>}
       </div>
+
+      {/* Varios resultados: elegir cuál */}
+      {resultadosBusqueda.length > 0 && (
+        <div className="card p-0 overflow-hidden">
+          <div className="px-4 py-2 text-xs text-gray-400 border-b border-gray-100">
+            {resultadosBusqueda.length} clientes encontrados · elegí uno
+          </div>
+          {resultadosBusqueda.map(cli => (
+            <button
+              key={cli.id}
+              onClick={() => seleccionarCliente(cli)}
+              className="w-full flex items-center justify-between px-4 py-3 border-b border-gray-50 last:border-b-0 hover:bg-orange-50 text-left transition-colors"
+            >
+              <div>
+                <div className="font-semibold text-gray-800">{cli.apellido}, {cli.nombre}</div>
+                <div className="text-xs text-gray-400">{cli.codigo} · DNI: {cli.dni}</div>
+              </div>
+              <span className="text-orange-600 text-sm">Elegir →</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Datos del cliente */}
       {clienteEncontrado && (
