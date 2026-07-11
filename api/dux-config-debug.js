@@ -1,3 +1,5 @@
+import { createClient } from '@supabase/supabase-js'
+
 const DUX_BASE = 'https://erp.duxsoftware.com.ar/WSERP/rest/services'
 
 async function get(path) {
@@ -26,5 +28,11 @@ export default async function handler(req, res) {
     if (!idProceso) return res.status(400).json({ error: 'Falta idProceso' })
     return res.status(200).json(await get(`/obtenerEstadoFactura?idProceso=${idProceso}`))
   }
-  return res.status(400).json({ error: 'Parámetro "que" inválido. Usar: empresas, sucursales, personales o estadoFactura.' })
+  if (que === 'rubrosTodos') {
+    const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY)
+    const { data, error } = await supabase.from('v_rubros_subrubros').select('rubro').ilike('rubro', `%${req.query.filtro || ''}%`)
+    if (error) return res.status(502).json({ error: error.message })
+    return res.status(200).json([...new Set(data.map(r => r.rubro))].sort())
+  }
+  return res.status(400).json({ error: 'Parámetro "que" inválido. Usar: empresas, sucursales, personales, estadoFactura o rubrosTodos.' })
 }
