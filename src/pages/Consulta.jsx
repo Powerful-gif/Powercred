@@ -70,6 +70,12 @@ export default function Consulta() {
     opcionesRubros.filter(r => r.rubro === rubroCatSel).map(r => r.sub_rubro)
   )].filter(Boolean).sort()
 
+  function detectarRubroProducto(rubroProducto) {
+    if (rubroProducto === 'COLCHONES Y SOMMIERS') return 'colchones'
+    if (rubroProducto === 'MOVILIDAD') return 'movilidad'
+    return 'general'
+  }
+
   async function elegirProducto(p) {
     setPrecio(String(p.precio)) // precio de la lista, se confirma/actualiza abajo con la búsqueda completa
     setEan('')
@@ -81,12 +87,14 @@ export default function Consulta() {
       const data = await buscarPorEan(p.sku)
       setProducto(data)
       setPrecio(String(data.precio_pvp))
+      setRubro(detectarRubroProducto(data.rubro))
     } catch (e) {
       // si falla traer la ficha completa, dejamos al menos los datos básicos que ya teníamos
       setProducto({
         sku: p.sku, nombre: p.nombre, marca: p.marca, rubro: p.rubro,
         sub_rubro: p.sub_rubro, stock: p.stock, descripcion_html: '', fuente_descripcion: null,
       })
+      setRubro(detectarRubroProducto(p.rubro))
     } finally {
       setBuscando(false)
     }
@@ -116,6 +124,7 @@ export default function Consulta() {
       const data = await buscarPorEan(valor)
       setProducto(data)
       setPrecio(String(data.precio_pvp))
+      setRubro(detectarRubroProducto(data.rubro))
     } catch (e) {
       setErrorBusqueda(e.message)
     } finally {
