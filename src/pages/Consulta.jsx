@@ -53,7 +53,12 @@ export default function Consulta() {
   const [buscandoCatalogo, setBuscandoCatalogo] = useState(false)
   const [errorCatalogo, setErrorCatalogo] = useState('')
 
-  const TASAS_TARJETA = { 3: 0, 5: 0, 6: 0, 9: 15, 12: 20 }
+  const TASAS_TARJETA = {
+    general:   { 3: 0, 5: 0, 6: 0, 9: 15, 12: 20 },
+    colchones: { 3: 0, 5: 0, 6: 0, 9: 15, 12: 20 },
+    movilidad: { 3: 11, 6: 21, 9: 32, 12: 42 },
+  }
+  const tasasTarjetaRubro = TASAS_TARJETA[rubro] || TASAS_TARJETA.general
   const NOTA_TARJETA = { 5: 'Solo Naranja' }
 
   useEffect(() => {
@@ -204,7 +209,7 @@ export default function Consulta() {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(TASAS_TARJETA).map(([n, tasa]) => {
+                    {Object.entries(tasasTarjetaRubro).map(([n, tasa]) => {
                       const { cuota } = calcularCuota(aFinanciar, tasa, Number(n))
                       return (
                         <tr key={n}>
@@ -577,7 +582,7 @@ export default function Consulta() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(TASAS_TARJETA).map(([n, tasa]) => {
+                  {Object.entries(tasasTarjetaRubro).map(([n, tasa]) => {
                     const { cuota } = calcularCuota(aFinanciar, tasa, Number(n))
                     return (
                       <tr key={n} className="border-b border-gray-50 hover:bg-blue-50 transition-colors">
