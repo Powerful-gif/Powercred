@@ -132,6 +132,7 @@ export default function Configuracion() {
             { key: 'hogar', label: '🏠 Crédito del Hogar' },
             { key: 'efectivo', label: '💵 Préstamo en Efectivo' },
             { key: 'colchones', label: '🛋️ Colchones y Sillones' },
+            { key: 'movilidad', label: '🛵 Movilidad' },
           ].map(({ key: tipo, label }) => (
             <div key={tipo} className="card">
               <h3 className="font-semibold text-gray-900 mb-4">{label}</h3>

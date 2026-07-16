@@ -189,12 +189,14 @@ export default function NuevoCredito() {
 
   function getTasaBoton(n) {
     if (tipo === 'hogar' && rubro === 'colchones_sillones') return getTasa('colchones', periodicidad, n)
+    if (tipo === 'hogar' && rubro === 'movilidad') return getTasa('movilidad', periodicidad, n)
     return getTasa(tipo, periodicidad, n)
   }
 
   function getTasaEfectiva() {
     if (modoPersonalizado) return parseFloat(tasaPersonalizada) || 0
     if (tipo === 'hogar' && rubro === 'colchones_sillones') return getTasa('colchones', periodicidadEfectiva, cantCuotasEfectiva)
+    if (tipo === 'hogar' && rubro === 'movilidad') return getTasa('movilidad', periodicidadEfectiva, cantCuotasEfectiva)
     return getTasa(tipo, periodicidadEfectiva, cantCuotasEfectiva)
   }
 
@@ -511,6 +513,7 @@ export default function NuevoCredito() {
               {[
                 { id: 'general', label: 'General', desc: 'Tasas estándar del sistema' },
                 { id: 'colchones_sillones', label: 'Colchones y Sillones', desc: '3 y 6 cuotas sin interés' },
+                { id: 'movilidad', label: 'Movilidad', desc: 'Bicis, motos · 5% mensual' },
               ].map(r => (
                 <button
                   key={r.id}
