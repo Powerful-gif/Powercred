@@ -44,7 +44,7 @@ export default function Configuracion() {
   const [nuevaCuota, setNuevaCuota] = useState({})
 
   useEffect(() => {
-    if (tab === 'grupos' && rubrosDuxDisponibles.length === 0) {
+    if (tab === 'powercred' && rubrosDuxDisponibles.length === 0) {
       cargarRubrosDux()
     }
   }, [tab])
@@ -183,7 +183,8 @@ export default function Configuracion() {
   const tabs = [
     { key: 'negocio', label: 'Datos del negocio' },
     { key: 'pagare', label: 'Pagaré' },
-    { key: 'grupos', label: 'Rubros y tasas' },
+    { key: 'powercred', label: 'PowerCred' },
+    { key: 'tarjeta', label: 'Tarjeta de Crédito' },
     { key: 'tasas', label: 'Préstamo en efectivo' },
     { key: 'mora', label: 'Interés mora' },
     { key: 'backup', label: 'Backup' },
@@ -246,15 +247,16 @@ export default function Configuracion() {
         </div>
       )}
 
-      {/* Rubros y tasas (grupos) */}
-      {tab === 'grupos' && (
+      {/* PowerCred: rubros de Dux + tasas PowerCred + alta/baja de grupos */}
+      {tab === 'powercred' && (
         <div className="space-y-4">
           <div className="card">
             <p className="text-sm text-gray-500">
-              Cada grupo define sus propias tasas de PowerCred y Tarjeta de Crédito, y qué
-              rubros de Dux pertenecen a él. Cuando se busca un producto (por código de barras
+              Cada grupo define qué rubros de Dux le pertenecen y sus tasas de PowerCred
+              (mensual/quincenal/semanal). Cuando se busca un producto (por código de barras
               o por categoría), el sistema detecta el grupo automáticamente. El grupo <strong>General</strong>{' '}
               es el que se usa cuando el rubro del producto no está asignado a ningún otro grupo.
+              Las tasas de Tarjeta de Crédito se cargan aparte, en la pestaña "Tarjeta de Crédito".
             </p>
           </div>
 
@@ -345,51 +347,6 @@ export default function Configuracion() {
                   </div>
                 ))}
               </div>
-
-              {/* Tasas Tarjeta */}
-              <div>
-                <div className="text-sm font-semibold text-gray-700 mb-2">Tasas Tarjeta de Crédito</div>
-                <div className="flex flex-wrap gap-3 items-end">
-                  {Object.entries(grupo.tarjeta || {})
-                    .sort((a, b) => Number(a[0]) - Number(b[0]))
-                    .map(([cuotas, tasa]) => (
-                      <div key={cuotas} className="flex flex-col items-center gap-1">
-                        <div className="text-xs text-gray-500 flex items-center gap-1">
-                          {cuotas} cuotas
-                          {esCuotaTarjetaNaranja(cuotas) && (
-                            <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-orange-50 text-orange-600">Naranja</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            className="input-field w-20 text-center text-sm"
-                            value={tasa}
-                            onChange={e => actualizarTarjetaGrupo(grupo.id, cuotas, e.target.value)}
-                            step="0.5" min="0"
-                          />
-                          <span className="text-gray-400 text-sm">%</span>
-                          <button onClick={() => quitarCuotaTarjeta(grupo.id, cuotas)} className="text-gray-300 hover:text-red-500 text-sm ml-0.5">
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      className="input-field w-16 text-center text-sm"
-                      placeholder="N°"
-                      value={nuevaCuota[grupo.id] || ''}
-                      onChange={e => setNuevaCuota(prev => ({ ...prev, [grupo.id]: e.target.value }))}
-                      min="1"
-                    />
-                    <button onClick={() => agregarCuotaTarjeta(grupo.id)} className="btn-secondary text-xs px-2 py-1.5">
-                      + cuota
-                    </button>
-                  </div>
-                </div>
-              </div>
             </div>
           ))}
 
@@ -408,6 +365,64 @@ export default function Configuracion() {
               <button onClick={agregarGrupo} className="btn-primary px-5">Agregar</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Tarjeta de Crédito: solo tasas por grupo */}
+      {tab === 'tarjeta' && (
+        <div className="space-y-4">
+          <div className="card">
+            <p className="text-sm text-gray-500">
+              Tasas de Tarjeta de Crédito por grupo. Los grupos y sus rubros de Dux se
+              administran en la pestaña "PowerCred".
+            </p>
+          </div>
+
+          {grupos.map(grupo => (
+            <div key={grupo.id} className="card space-y-3">
+              <h3 className="font-semibold text-gray-900">{grupo.nombre}</h3>
+              <div className="flex flex-wrap gap-3 items-end">
+                {Object.entries(grupo.tarjeta || {})
+                  .sort((a, b) => Number(a[0]) - Number(b[0]))
+                  .map(([cuotas, tasa]) => (
+                    <div key={cuotas} className="flex flex-col items-center gap-1">
+                      <div className="text-xs text-gray-500 flex items-center gap-1">
+                        {cuotas} cuotas
+                        {esCuotaTarjetaNaranja(cuotas) && (
+                          <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-orange-50 text-orange-600">Naranja</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          className="input-field w-20 text-center text-sm"
+                          value={tasa}
+                          onChange={e => actualizarTarjetaGrupo(grupo.id, cuotas, e.target.value)}
+                          step="0.5" min="0"
+                        />
+                        <span className="text-gray-400 text-sm">%</span>
+                        <button onClick={() => quitarCuotaTarjeta(grupo.id, cuotas)} className="text-gray-300 hover:text-red-500 text-sm ml-0.5">
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    className="input-field w-16 text-center text-sm"
+                    placeholder="N°"
+                    value={nuevaCuota[grupo.id] || ''}
+                    onChange={e => setNuevaCuota(prev => ({ ...prev, [grupo.id]: e.target.value }))}
+                    min="1"
+                  />
+                  <button onClick={() => agregarCuotaTarjeta(grupo.id)} className="btn-secondary text-xs px-2 py-1.5">
+                    + cuota
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
