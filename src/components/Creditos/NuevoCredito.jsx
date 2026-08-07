@@ -24,7 +24,7 @@ async function buscarProductoPorEan(ean) {
 export default function NuevoCredito() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { config, getTasa } = useConfig()
+  const { config, getTasa, getTasaGrupo } = useConfig()
   const printRef = useRef()
 
   // Paso: 1=buscar cliente, 2=cargar crédito, 3=documentos
@@ -188,13 +188,13 @@ export default function NuevoCredito() {
   const cantCuotasEfectiva = modoPersonalizado ? (parseInt(cuotasPersonalizada) || null) : cantCuotas
 
   function getTasaBoton(n) {
-    if (tipo === 'hogar' && rubro === 'colchones_sillones') return getTasa('colchones', periodicidad, n)
+    if (tipo === 'hogar') return getTasaGrupo(rubro, periodicidad, n)
     return getTasa(tipo, periodicidad, n)
   }
 
   function getTasaEfectiva() {
     if (modoPersonalizado) return parseFloat(tasaPersonalizada) || 0
-    if (tipo === 'hogar' && rubro === 'colchones_sillones') return getTasa('colchones', periodicidadEfectiva, cantCuotasEfectiva)
+    if (tipo === 'hogar') return getTasaGrupo(rubro, periodicidadEfectiva, cantCuotasEfectiva)
     return getTasa(tipo, periodicidadEfectiva, cantCuotasEfectiva)
   }
 
@@ -508,20 +508,16 @@ export default function NuevoCredito() {
           <div>
             <label className="label mb-2">Rubro</label>
             <div className="flex gap-3 flex-wrap">
-              {[
-                { id: 'general', label: 'General', desc: 'Tasas estándar del sistema' },
-                { id: 'colchones_sillones', label: 'Colchones y Sillones', desc: '3 y 6 cuotas sin interés' },
-              ].map(r => (
+              {config.gruposTasa.map(g => (
                 <button
-                  key={r.id}
+                  key={g.id}
                   type="button"
-                  onClick={() => { setRubro(r.id); setCantCuotas(null) }}
+                  onClick={() => { setRubro(g.id); setCantCuotas(null) }}
                   className={`px-4 py-2.5 rounded-xl border-2 text-left transition-colors ${
-                    rubro === r.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                    rubro === g.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <div className="font-semibold text-sm">{r.label}</div>
-                  <div className="text-xs text-gray-400 mt-0.5">{r.desc}</div>
+                  <div className="font-semibold text-sm">{g.nombre}</div>
                 </button>
               ))}
             </div>

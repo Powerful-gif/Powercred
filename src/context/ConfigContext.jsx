@@ -19,23 +19,45 @@ const DEFAULT_CONFIG = {
   },
   mora: { tasa_diaria: 0.3 },
   tasas: {
-    hogar: {
-      mensual: { 3: 12, 6: 24, 9: 42, 12: 60 },
-      quincenal: { 4: 8, 6: 12, 8: 16, 10: 20, 12: 24 },
-      semanal: { 4: 4, 8: 8, 12: 12, 16: 16, 20: 20, 24: 24 }
-    },
     efectivo: {
       mensual: { 3: 24, 6: 48, 9: 72 },
       quincenal: { 4: 16, 6: 24, 8: 32, 10: 40, 12: 48 },
       semanal: { 4: 8, 8: 16, 12: 24, 16: 32, 20: 40, 24: 48 }
-    },
-    colchones: {
-      mensual: { 3: 0, 6: 0, 9: 18, 12: 24 },
-      quincenal: { 4: 0, 6: 0, 8: 0, 10: 0, 12: 0 },
-      semanal: { 4: 0, 8: 0, 12: 0, 16: 0, 20: 0, 24: 0 }
     }
-  }
+  },
+  // Grupos de tasa: cada rubro de Dux pertenece a uno (o al "General" por
+  // defecto si no matchea ninguno). Definen tanto las tasas de PowerCred
+  // (mensual/quincenal/semanal) como las de Tarjeta de Crédito.
+  gruposTasa: [
+    {
+      id: 'general',
+      nombre: 'General',
+      esDefault: true,
+      rubrosDux: [],
+      powercred: {
+        mensual: { 3: 12, 6: 24, 9: 42, 12: 60 },
+        quincenal: { 4: 8, 6: 12, 8: 16, 10: 20, 12: 24 },
+        semanal: { 4: 4, 8: 8, 12: 12, 16: 16, 20: 20, 24: 24 }
+      },
+      tarjeta: { 3: 0, 5: 0, 6: 0, 9: 0, 12: 20, 14: 0 }
+    },
+    {
+      id: 'colchones',
+      nombre: 'Colchones y Sillones',
+      esDefault: false,
+      rubrosDux: ['COLCHONES Y SOMMIERS'],
+      powercred: {
+        mensual: { 3: 0, 6: 0, 9: 18, 12: 24 },
+        quincenal: { 4: 0, 6: 0, 8: 0, 10: 0, 12: 0 },
+        semanal: { 4: 0, 8: 0, 12: 0, 16: 0, 20: 0, 24: 0 }
+      },
+      tarjeta: { 3: 0, 5: 0, 6: 0, 9: 0, 12: 20, 14: 0 }
+    }
+  ]
 }
+
+// Cuotas de tarjeta que solo aceptan tarjeta Naranja (fijo, no depende del grupo)
+const CUOTAS_TARJETA_NARANJA = [5, 9, 14]
 
 const ConfigContext = createContext(null)
 
@@ -56,13 +78,12 @@ export function ConfigProvider({ children }) {
         .single()
       if (!error && data?.datos) {
         const merged = { ...DEFAULT_CONFIG, ...data.datos }
-        if (data.datos?.tasas) {
-          merged.tasas = {
-            hogar: { ...DEFAULT_CONFIG.tasas.hogar, ...data.datos.tasas?.hogar },
-            efectivo: { ...DEFAULT_CONFIG.tasas.efectivo, ...data.datos.tasas?.efectivo },
-            colchones: { ...DEFAULT_CONFIG.tasas.colchones, ...data.datos.tasas?.colchones }
-          }
+        merged.tasas = {
+          efectivo: { ...DEFAULT_CONFIG.tasas.efectivo, ...data.datos.tasas?.efectivo }
         }
+        merged.gruposTasa = (data.datos.gruposTasa && data.datos.gruposTasa.length)
+          ? data.datos.gruposTasa
+          : DEFAULT_CONFIG.gruposTasa
         setConfig(merged)
       }
     } catch (e) {
@@ -95,8 +116,44 @@ export function ConfigProvider({ children }) {
     }
   }
 
+  function getGrupo(grupoId) {
+    return config.gruposTasa.find(g => g.id === grupoId)
+      || config.gruposTasa.find(g => g.esDefault)
+      || config.gruposTasa[0]
+  }
+
+  function getTasaGrupo(grupoId, periodicidad, cuotas) {
+    try {
+      return getGrupo(grupoId).powercred[periodicidad][cuotas] ?? 0
+    } catch {
+      return 0
+    }
+  }
+
+  function getTasaTarjetaGrupo(grupoId, cuotas) {
+    try {
+      return getGrupo(grupoId).tarjeta[cuotas] ?? 0
+    } catch {
+      return 0
+    }
+  }
+
+  function esCuotaTarjetaNaranja(cuotas) {
+    return CUOTAS_TARJETA_NARANJA.includes(Number(cuotas))
+  }
+
+  function detectarGrupoPorRubroDux(rubroDux) {
+    const match = config.gruposTasa.find(g => (g.rubrosDux || []).includes(rubroDux))
+    if (match) return match.id
+    const porDefecto = config.gruposTasa.find(g => g.esDefault)
+    return porDefecto ? porDefecto.id : config.gruposTasa[0]?.id
+  }
+
   return (
-    <ConfigContext.Provider value={{ config, loading, saveConfig, getTasa }}>
+    <ConfigContext.Provider value={{
+      config, loading, saveConfig, getTasa,
+      getGrupo, getTasaGrupo, getTasaTarjetaGrupo, esCuotaTarjetaNaranja, detectarGrupoPorRubroDux
+    }}>
       {children}
     </ConfigContext.Provider>
   )

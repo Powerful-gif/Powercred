@@ -1,10 +1,32 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useConfig } from '../context/ConfigContext'
 import { supabase } from '../lib/supabase'
 import { hoyArgentina } from '../lib/formatters'
 
+function idDesdeNombre(nombre) {
+  const base = nombre.trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+  return base || `grupo_${Date.now()}`
+}
+
+function grupoVacio(nombre) {
+  return {
+    id: idDesdeNombre(nombre) + '_' + Math.random().toString(36).slice(2, 6),
+    nombre,
+    esDefault: false,
+    rubrosDux: [],
+    powercred: {
+      mensual: { 3: 0, 6: 0, 9: 0, 12: 0 },
+      quincenal: { 4: 0, 6: 0, 8: 0, 10: 0, 12: 0 },
+      semanal: { 4: 0, 8: 0, 12: 0, 16: 0, 20: 0, 24: 0 }
+    },
+    tarjeta: { 3: 0, 5: 0, 6: 0, 9: 0, 12: 0, 14: 0 }
+  }
+}
+
 export default function Configuracion() {
-  const { config, saveConfig } = useConfig()
+  const { config, saveConfig, esCuotaTarjetaNaranja } = useConfig()
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState('')
   const [tab, setTab] = useState('negocio')
@@ -14,10 +36,35 @@ export default function Configuracion() {
   const [pagare, setPagare] = useState(config.pagare)
   const [mora, setMora] = useState(config.mora)
   const [tasas, setTasas] = useState(config.tasas)
+  const [grupos, setGrupos] = useState(config.gruposTasa)
+
+  const [rubrosDuxDisponibles, setRubrosDuxDisponibles] = useState([])
+  const [cargandoRubros, setCargandoRubros] = useState(false)
+  const [nuevoGrupoNombre, setNuevoGrupoNombre] = useState('')
+  const [nuevaCuota, setNuevaCuota] = useState({})
+
+  useEffect(() => {
+    if (tab === 'grupos' && rubrosDuxDisponibles.length === 0) {
+      cargarRubrosDux()
+    }
+  }, [tab])
+
+  async function cargarRubrosDux() {
+    setCargandoRubros(true)
+    try {
+      const r = await fetch('/api/buscar-catalogo?accion=rubros_admin')
+      const data = await r.json()
+      setRubrosDuxDisponibles(Array.isArray(data) ? data : [])
+    } catch (e) {
+      console.error('Error cargando rubros de Dux', e)
+    } finally {
+      setCargandoRubros(false)
+    }
+  }
 
   async function guardar() {
     setGuardando(true)
-    await saveConfig({ negocio, pagare, mora, tasas })
+    await saveConfig({ negocio, pagare, mora, tasas, gruposTasa: grupos })
     setMensaje('Configuración guardada correctamente')
     setGuardando(false)
     setTimeout(() => setMensaje(''), 3000)
@@ -60,16 +107,90 @@ export default function Configuracion() {
     }))
   }
 
+  // ── Grupos de tasa ──────────────────────────────────────────
+  function agregarGrupo() {
+    const nombre = nuevoGrupoNombre.trim()
+    if (!nombre) return
+    setGrupos(prev => [...prev, grupoVacio(nombre)])
+    setNuevoGrupoNombre('')
+  }
+
+  function eliminarGrupo(id) {
+    setGrupos(prev => prev.filter(g => g.id !== id))
+  }
+
+  function renombrarGrupo(id, nombre) {
+    setGrupos(prev => prev.map(g => g.id === id ? { ...g, nombre } : g))
+  }
+
+  function toggleRubroGrupo(grupoId, rubro) {
+    setGrupos(prev => prev.map(g => {
+      if (g.id === grupoId) {
+        const tiene = g.rubrosDux.includes(rubro)
+        return { ...g, rubrosDux: tiene ? g.rubrosDux.filter(r => r !== rubro) : [...g.rubrosDux, rubro] }
+      }
+      // un rubro no puede pertenecer a dos grupos a la vez
+      return { ...g, rubrosDux: g.rubrosDux.filter(r => r !== rubro) }
+    }))
+  }
+
+  function seleccionarTodosRubros(grupoId) {
+    setGrupos(prev => prev.map(g => {
+      if (g.id === grupoId) return { ...g, rubrosDux: [...rubrosDuxDisponibles] }
+      return { ...g, rubrosDux: [] }
+    }))
+  }
+
+  function deseleccionarTodosRubros(grupoId) {
+    setGrupos(prev => prev.map(g => g.id === grupoId ? { ...g, rubrosDux: [] } : g))
+  }
+
+  function actualizarPowercredGrupo(grupoId, periodicidad, cuotas, valor) {
+    setGrupos(prev => prev.map(g => g.id !== grupoId ? g : {
+      ...g,
+      powercred: {
+        ...g.powercred,
+        [periodicidad]: { ...g.powercred[periodicidad], [cuotas]: Number(valor) }
+      }
+    }))
+  }
+
+  function actualizarTarjetaGrupo(grupoId, cuotas, valor) {
+    setGrupos(prev => prev.map(g => g.id !== grupoId ? g : {
+      ...g,
+      tarjeta: { ...g.tarjeta, [cuotas]: Number(valor) }
+    }))
+  }
+
+  function agregarCuotaTarjeta(grupoId) {
+    const cuotas = parseInt(nuevaCuota[grupoId])
+    if (!cuotas || cuotas <= 0) return
+    setGrupos(prev => prev.map(g => g.id !== grupoId ? g : {
+      ...g,
+      tarjeta: { ...g.tarjeta, [cuotas]: g.tarjeta[cuotas] ?? 0 }
+    }))
+    setNuevaCuota(prev => ({ ...prev, [grupoId]: '' }))
+  }
+
+  function quitarCuotaTarjeta(grupoId, cuotas) {
+    setGrupos(prev => prev.map(g => {
+      if (g.id !== grupoId) return g
+      const { [cuotas]: _, ...resto } = g.tarjeta
+      return { ...g, tarjeta: resto }
+    }))
+  }
+
   const tabs = [
     { key: 'negocio', label: 'Datos del negocio' },
     { key: 'pagare', label: 'Pagaré' },
-    { key: 'tasas', label: 'Tasas de interés' },
+    { key: 'grupos', label: 'Rubros y tasas' },
+    { key: 'tasas', label: 'Préstamo en efectivo' },
     { key: 'mora', label: 'Interés mora' },
     { key: 'backup', label: 'Backup' },
   ]
 
   return (
-    <div className="max-w-3xl space-y-5">
+    <div className="max-w-4xl space-y-5">
       {/* Tabs */}
       <div className="flex gap-2 flex-wrap">
         {tabs.map(t => (
@@ -125,45 +246,201 @@ export default function Configuracion() {
         </div>
       )}
 
-      {/* Tasas */}
-      {tab === 'tasas' && (
+      {/* Rubros y tasas (grupos) */}
+      {tab === 'grupos' && (
         <div className="space-y-4">
-          {[
-            { key: 'hogar', label: '🏠 Crédito del Hogar' },
-            { key: 'efectivo', label: '💵 Préstamo en Efectivo' },
-            { key: 'colchones', label: '🛋️ Colchones y Sillones' },
-          ].map(({ key: tipo, label }) => (
-            <div key={tipo} className="card">
-              <h3 className="font-semibold text-gray-900 mb-4">{label}</h3>
-              {[
-                { key: 'mensual', label: 'Mensuales' },
-                { key: 'quincenal', label: 'Quincenales' },
-                { key: 'semanal', label: 'Semanales' },
-              ].map(({ key: period, label: periodLabel }) => (
-                <div key={period} className="mb-5">
-                  <div className="text-sm font-medium text-gray-600 mb-2">{periodLabel}</div>
-                  <div className="flex flex-wrap gap-3">
-                    {Object.entries(tasas[tipo]?.[period] || {}).map(([cuotas, tasa]) => (
+          <div className="card">
+            <p className="text-sm text-gray-500">
+              Cada grupo define sus propias tasas de PowerCred y Tarjeta de Crédito, y qué
+              rubros de Dux pertenecen a él. Cuando se busca un producto (por código de barras
+              o por categoría), el sistema detecta el grupo automáticamente. El grupo <strong>General</strong>{' '}
+              es el que se usa cuando el rubro del producto no está asignado a ningún otro grupo.
+            </p>
+          </div>
+
+          {grupos.map(grupo => (
+            <div key={grupo.id} className="card space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <input
+                  type="text"
+                  className="input-field font-semibold text-gray-900 max-w-xs"
+                  value={grupo.nombre}
+                  onChange={e => renombrarGrupo(grupo.id, e.target.value)}
+                  disabled={grupo.esDefault}
+                />
+                {!grupo.esDefault && (
+                  <button onClick={() => eliminarGrupo(grupo.id)} className="text-xs text-red-500 hover:underline">
+                    Eliminar grupo
+                  </button>
+                )}
+              </div>
+
+              {/* Rubros de Dux asignados */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="label mb-0">Rubros de Dux en este grupo</label>
+                  <div className="flex gap-3 text-xs">
+                    <button onClick={() => seleccionarTodosRubros(grupo.id)} className="text-blue-600 hover:underline">
+                      Seleccionar todos
+                    </button>
+                    <button onClick={() => deseleccionarTodosRubros(grupo.id)} className="text-gray-500 hover:underline">
+                      Ninguno
+                    </button>
+                  </div>
+                </div>
+                {cargandoRubros ? (
+                  <div className="text-sm text-gray-400">Cargando rubros de Dux...</div>
+                ) : (
+                  <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2 flex flex-wrap gap-2">
+                    {rubrosDuxDisponibles.map(r => {
+                      const activo = grupo.rubrosDux.includes(r)
+                      return (
+                        <button
+                          key={r}
+                          onClick={() => toggleRubroGrupo(grupo.id, r)}
+                          className={`px-2.5 py-1 rounded-md text-xs border transition-colors ${
+                            activo ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          {r}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                {grupo.esDefault && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    "General" se aplica a cualquier rubro que no esté asignado a otro grupo, no hace falta tildar nada acá.
+                  </p>
+                )}
+              </div>
+
+              {/* Tasas PowerCred */}
+              <div>
+                <div className="text-sm font-semibold text-gray-700 mb-2">Tasas PowerCred</div>
+                {[
+                  { key: 'mensual', label: 'Mensuales' },
+                  { key: 'quincenal', label: 'Quincenales' },
+                  { key: 'semanal', label: 'Semanales' },
+                ].map(({ key: period, label: periodLabel }) => (
+                  <div key={period} className="mb-3">
+                    <div className="text-xs font-medium text-gray-500 mb-1.5">{periodLabel}</div>
+                    <div className="flex flex-wrap gap-3">
+                      {Object.entries(grupo.powercred[period] || {}).map(([cuotas, tasa]) => (
+                        <div key={cuotas} className="flex flex-col items-center gap-1">
+                          <div className="text-xs text-gray-500">{cuotas} cuotas</div>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              className="input-field w-20 text-center text-sm"
+                              value={tasa}
+                              onChange={e => actualizarPowercredGrupo(grupo.id, period, cuotas, e.target.value)}
+                              step="0.5" min="0"
+                            />
+                            <span className="text-gray-400 text-sm">%</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Tasas Tarjeta */}
+              <div>
+                <div className="text-sm font-semibold text-gray-700 mb-2">Tasas Tarjeta de Crédito</div>
+                <div className="flex flex-wrap gap-3 items-end">
+                  {Object.entries(grupo.tarjeta || {})
+                    .sort((a, b) => Number(a[0]) - Number(b[0]))
+                    .map(([cuotas, tasa]) => (
                       <div key={cuotas} className="flex flex-col items-center gap-1">
-                        <div className="text-xs text-gray-500">{cuotas} cuotas</div>
+                        <div className="text-xs text-gray-500 flex items-center gap-1">
+                          {cuotas} cuotas
+                          {esCuotaTarjetaNaranja(cuotas) && (
+                            <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-orange-50 text-orange-600">Naranja</span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-1">
                           <input
                             type="number"
                             className="input-field w-20 text-center text-sm"
                             value={tasa}
-                            onChange={e => actualizarTasa(tipo, period, cuotas, e.target.value)}
+                            onChange={e => actualizarTarjetaGrupo(grupo.id, cuotas, e.target.value)}
                             step="0.5" min="0"
                           />
                           <span className="text-gray-400 text-sm">%</span>
+                          <button onClick={() => quitarCuotaTarjeta(grupo.id, cuotas)} className="text-gray-300 hover:text-red-500 text-sm ml-0.5">
+                            ✕
+                          </button>
                         </div>
                       </div>
                     ))}
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      className="input-field w-16 text-center text-sm"
+                      placeholder="N°"
+                      value={nuevaCuota[grupo.id] || ''}
+                      onChange={e => setNuevaCuota(prev => ({ ...prev, [grupo.id]: e.target.value }))}
+                      min="1"
+                    />
+                    <button onClick={() => agregarCuotaTarjeta(grupo.id)} className="btn-secondary text-xs px-2 py-1.5">
+                      + cuota
+                    </button>
                   </div>
                 </div>
-              ))}
+              </div>
             </div>
           ))}
 
+          {/* Agregar grupo nuevo */}
+          <div className="card">
+            <label className="label">Agregar grupo nuevo</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                className="input-field flex-1"
+                placeholder="Ej: Heladeras y Freezers"
+                value={nuevoGrupoNombre}
+                onChange={e => setNuevoGrupoNombre(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && agregarGrupo()}
+              />
+              <button onClick={agregarGrupo} className="btn-primary px-5">Agregar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Préstamo en efectivo */}
+      {tab === 'tasas' && (
+        <div className="card">
+          <h3 className="font-semibold text-gray-900 mb-4">💵 Préstamo en Efectivo</h3>
+          {[
+            { key: 'mensual', label: 'Mensuales' },
+            { key: 'quincenal', label: 'Quincenales' },
+            { key: 'semanal', label: 'Semanales' },
+          ].map(({ key: period, label: periodLabel }) => (
+            <div key={period} className="mb-5">
+              <div className="text-sm font-medium text-gray-600 mb-2">{periodLabel}</div>
+              <div className="flex flex-wrap gap-3">
+                {Object.entries(tasas.efectivo?.[period] || {}).map(([cuotas, tasa]) => (
+                  <div key={cuotas} className="flex flex-col items-center gap-1">
+                    <div className="text-xs text-gray-500">{cuotas} cuotas</div>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        className="input-field w-20 text-center text-sm"
+                        value={tasa}
+                        onChange={e => actualizarTasa('efectivo', period, cuotas, e.target.value)}
+                        step="0.5" min="0"
+                      />
+                      <span className="text-gray-400 text-sm">%</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

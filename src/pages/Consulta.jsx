@@ -34,7 +34,7 @@ const PLANES = {
 }
 
 export default function Consulta() {
-  const { getTasa, config } = useConfig()
+  const { config, getTasaGrupo, getTasaTarjetaGrupo, esCuotaTarjetaNaranja, detectarGrupoPorRubroDux } = useConfig()
   const [precio, setPrecio] = useState('')
   const [modoEntrega, setModoEntrega] = useState('0')
   const [pctCustom, setPctCustom] = useState('')
@@ -53,8 +53,7 @@ export default function Consulta() {
   const [buscandoCatalogo, setBuscandoCatalogo] = useState(false)
   const [errorCatalogo, setErrorCatalogo] = useState('')
 
-  const TASAS_TARJETA = { 3: 0, 5: 0, 6: 0, 9: 15, 12: 20 }
-  const NOTA_TARJETA = { 5: 'Solo Naranja' }
+  const grupoActual = config.gruposTasa.find(g => g.id === rubro) || config.gruposTasa[0]
 
   useEffect(() => {
     buscarRubrosDisponibles().then(setOpcionesRubros)
@@ -76,12 +75,14 @@ export default function Consulta() {
       const data = await buscarPorEan(p.sku)
       setProducto(data)
       setPrecio(String(data.precio_pvp))
+      setRubro(detectarGrupoPorRubroDux(data.rubro))
     } catch (e) {
       // si falla traer la ficha completa, dejamos al menos los datos básicos que ya teníamos
       setProducto({
         sku: p.sku, nombre: p.nombre, marca: p.marca, rubro: p.rubro,
         sub_rubro: p.sub_rubro, stock: p.stock, descripcion_html: '', fuente_descripcion: null,
       })
+      setRubro(detectarGrupoPorRubroDux(p.rubro))
     } finally {
       setBuscando(false)
     }
@@ -111,6 +112,7 @@ export default function Consulta() {
       const data = await buscarPorEan(valor)
       setProducto(data)
       setPrecio(String(data.precio_pvp))
+      setRubro(detectarGrupoPorRubroDux(data.rubro))
     } catch (e) {
       setErrorBusqueda(e.message)
     } finally {
@@ -133,8 +135,7 @@ export default function Consulta() {
   }
 
   function getTasaRubro(n, peri) {
-    if (rubro === 'general') return getTasa('hogar', peri, n)
-    return getTasa('colchones', peri, n)
+    return getTasaGrupo(rubro, peri, n)
   }
 
   function filas(peri, opciones) {
@@ -145,7 +146,7 @@ export default function Consulta() {
     })
   }
 
-  const rubroLabel = rubro === 'general' ? 'General' : 'Colchones y Sillones'
+  const rubroLabel = grupoActual?.nombre || 'General'
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
@@ -203,12 +204,12 @@ export default function Consulta() {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(TASAS_TARJETA).map(([n, tasa]) => {
+                    {Object.entries(grupoActual.tarjeta).sort((a, b) => Number(a[0]) - Number(b[0])).map(([n, tasa]) => {
                       const { cuota } = calcularCuota(aFinanciar, tasa, Number(n))
                       return (
                         <tr key={n}>
                           <td style={{ padding: '7px 10px', border: '1px solid #ddd', fontWeight: 'bold' }}>
-                            {n} cuotas{NOTA_TARJETA[n] ? ` (${NOTA_TARJETA[n]})` : ''}
+                            {n} cuotas{esCuotaTarjetaNaranja(n) ? ' (Solo Naranja)' : ''}
                           </td>
                           <td style={{ padding: '7px 10px', border: '1px solid #ddd', textAlign: 'center', fontWeight: 'bold', fontSize: '15px' }}>
                             {formatMoneda(cuota)}
@@ -471,20 +472,16 @@ export default function Consulta() {
               {/* Rubro */}
               <div>
                 <label className="label mb-3">Rubro</label>
-                <div className="flex gap-3">
-                  {[
-                    { val: 'general',   label: 'General',              desc: 'Tasas estándar del sistema' },
-                    { val: 'colchones', label: 'Colchones y Sillones', desc: 'Sin interés hasta 6 meses' },
-                  ].map(({ val, label, desc }) => (
+                <div className="flex gap-3 flex-wrap">
+                  {config.gruposTasa.map(g => (
                     <button
-                      key={val}
-                      onClick={() => setRubro(val)}
-                      className={`flex-1 py-3 px-4 rounded-xl border-2 text-left transition-colors ${
-                        rubro === val ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                      key={g.id}
+                      onClick={() => setRubro(g.id)}
+                      className={`flex-1 py-3 px-4 rounded-xl border-2 text-left transition-colors min-w-32 ${
+                        rubro === g.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
-                      <div className="font-semibold text-sm">{label}</div>
-                      <div className="text-xs text-gray-400 mt-0.5">{desc}</div>
+                      <div className="font-semibold text-sm">{g.nombre}</div>
                     </button>
                   ))}
                 </div>
@@ -575,7 +572,7 @@ export default function Consulta() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(TASAS_TARJETA).map(([n, tasa]) => {
+                  {Object.entries(grupoActual.tarjeta).sort((a, b) => Number(a[0]) - Number(b[0])).map(([n, tasa]) => {
                     const { cuota } = calcularCuota(aFinanciar, tasa, Number(n))
                     return (
                       <tr key={n} className="border-b border-gray-50 hover:bg-blue-50 transition-colors">
@@ -586,9 +583,9 @@ export default function Consulta() {
                               ? <span className="text-green-600 font-semibold text-xs">sin interés</span>
                               : <span className="text-gray-400 text-xs">{tasa}%</span>
                             }
-                            {NOTA_TARJETA[n] && (
+                            {esCuotaTarjetaNaranja(n) && (
                               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-orange-50 text-orange-600">
-                                {NOTA_TARJETA[n]}
+                                Solo Naranja
                               </span>
                             )}
                           </div>

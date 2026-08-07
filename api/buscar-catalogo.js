@@ -39,6 +39,15 @@ export default async function handler(req, res) {
     return res.status(200).json(filtrado)
   }
 
+  if (accion === 'rubros_admin') {
+    const { data, error } = await supabase
+      .from('v_rubros_subrubros')
+      .select('rubro')
+    if (error) return res.status(502).json({ error: 'Error consultando rubros.' })
+    const rubrosUnicos = [...new Set((data || []).map(r => r.rubro))].filter(Boolean).sort()
+    return res.status(200).json(rubrosUnicos)
+  }
+
   const { rubro, sub_rubro, nombre } = req.query
   let query = supabase
     .from('catalogo_dux')
