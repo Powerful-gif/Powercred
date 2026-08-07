@@ -60,12 +60,19 @@ const DEFAULT_CONFIG = {
       esDefault: true,
       rubrosDux: [],
       tarjeta: { 3: 0, 5: 0, 6: 0, 9: 0, 12: 20, 14: 0 }
+    },
+    {
+      id: 'recargo_14_cuotas',
+      nombre: 'Recargo 14 cuotas',
+      esDefault: false,
+      rubrosDux: ['CLIMATIZACION', 'COCINAS Y HORNOS', 'HELADERAS Y FREEZERS', 'LAVADO', 'TECNOLOGIA', 'TV, AUDIO Y VIDEO'],
+      tarjeta: { 3: 0, 5: 0, 6: 0, 9: 0, 12: 20, 14: 10 }
     }
   ]
 }
 
 // Cuotas de tarjeta que solo aceptan tarjeta Naranja (fijo, no depende del grupo)
-const CUOTAS_TARJETA_NARANJA = [5, 9, 14]
+const CUOTAS_TARJETA_NARANJA = [5, 14]
 
 const ConfigContext = createContext(null)
 
