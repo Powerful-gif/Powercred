@@ -53,6 +53,7 @@ export default function Configuracion() {
   const [nuevoGrupoNombre, setNuevoGrupoNombre] = useState('')
   const [nuevoGrupoTarjetaNombre, setNuevoGrupoTarjetaNombre] = useState('')
   const [nuevaCuota, setNuevaCuota] = useState({})
+  const [nuevaCuotaNaranja, setNuevaCuotaNaranja] = useState({})
 
   useEffect(() => {
     if ((tab === 'powercred' || tab === 'tarjeta') && rubrosDuxDisponibles.length === 0) {
@@ -214,11 +215,13 @@ export default function Configuracion() {
   function agregarCuotaTarjeta(grupoId) {
     const cuotas = parseInt(nuevaCuota[grupoId])
     if (!cuotas || cuotas <= 0) return
+    const clave = nuevaCuotaNaranja[grupoId] ? `${cuotas}-naranja` : `${cuotas}`
     setGruposTarjeta(prev => prev.map(g => g.id !== grupoId ? g : {
       ...g,
-      tarjeta: { ...g.tarjeta, [cuotas]: g.tarjeta[cuotas] ?? 0 }
+      tarjeta: { ...g.tarjeta, [clave]: g.tarjeta[clave] ?? 0 }
     }))
     setNuevaCuota(prev => ({ ...prev, [grupoId]: '' }))
+    setNuevaCuotaNaranja(prev => ({ ...prev, [grupoId]: false }))
   }
 
   function quitarCuotaTarjeta(grupoId, cuotas) {
@@ -490,12 +493,12 @@ export default function Configuracion() {
                 <div className="text-sm font-semibold text-gray-700 mb-2">Tasas Tarjeta de Crédito</div>
                 <div className="flex flex-wrap gap-3 items-end">
                   {Object.entries(grupo.tarjeta || {})
-                    .sort((a, b) => Number(a[0]) - Number(b[0]))
-                    .map(([cuotas, tasa]) => (
-                      <div key={cuotas} className="flex flex-col items-center gap-1">
+                    .sort((a, b) => parseInt(a[0], 10) - parseInt(b[0], 10) || (esCuotaTarjetaNaranja(a[0]) ? 1 : -1))
+                    .map(([clave, tasa]) => (
+                      <div key={clave} className="flex flex-col items-center gap-1">
                         <div className="text-xs text-gray-500 flex items-center gap-1">
-                          {cuotas} cuotas
-                          {esCuotaTarjetaNaranja(cuotas) && (
+                          {parseInt(clave, 10)} cuotas
+                          {esCuotaTarjetaNaranja(clave) && (
                             <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-orange-50 text-orange-600">Naranja</span>
                           )}
                         </div>
@@ -504,17 +507,17 @@ export default function Configuracion() {
                             type="number"
                             className="input-field w-20 text-center text-sm"
                             value={tasa}
-                            onChange={e => actualizarTarjetaGrupo(grupo.id, cuotas, e.target.value)}
+                            onChange={e => actualizarTarjetaGrupo(grupo.id, clave, e.target.value)}
                             step="0.5" min="0"
                           />
                           <span className="text-gray-400 text-sm">%</span>
-                          <button onClick={() => quitarCuotaTarjeta(grupo.id, cuotas)} className="text-gray-300 hover:text-red-500 text-sm ml-0.5">
+                          <button onClick={() => quitarCuotaTarjeta(grupo.id, clave)} className="text-gray-300 hover:text-red-500 text-sm ml-0.5">
                             ✕
                           </button>
                         </div>
                       </div>
                     ))}
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
                     <input
                       type="number"
                       className="input-field w-16 text-center text-sm"
@@ -523,6 +526,14 @@ export default function Configuracion() {
                       onChange={e => setNuevaCuota(prev => ({ ...prev, [grupo.id]: e.target.value }))}
                       min="1"
                     />
+                    <label className="flex items-center gap-1 text-xs text-gray-500">
+                      <input
+                        type="checkbox"
+                        checked={!!nuevaCuotaNaranja[grupo.id]}
+                        onChange={e => setNuevaCuotaNaranja(prev => ({ ...prev, [grupo.id]: e.target.checked }))}
+                      />
+                      Solo Naranja
+                    </label>
                     <button onClick={() => agregarCuotaTarjeta(grupo.id)} className="btn-secondary text-xs px-2 py-1.5">
                       + cuota
                     </button>

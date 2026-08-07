@@ -53,26 +53,26 @@ const DEFAULT_CONFIG = {
   ],
   // Grupos de Tarjeta de Crédito: totalmente independientes de los de
   // PowerCred, con su propia asignación de rubros de Dux y su propio "General".
+  // Las claves de "tarjeta" son la cantidad de cuotas, pero una cuota
+  // exclusiva de tarjeta Naranja se guarda como "N-naranja" (ej: "9-naranja")
+  // para poder convivir con la tasa "9" de cualquier otra tarjeta.
   gruposTarjeta: [
     {
       id: 'general',
       nombre: 'General',
       esDefault: true,
       rubrosDux: [],
-      tarjeta: { 3: 0, 5: 0, 6: 0, 9: 0, 12: 20, 14: 0 }
+      tarjeta: { 3: 0, '5-naranja': 0, 6: 0, 9: 15, '9-naranja': 0, 12: 20, '14-naranja': 0 }
     },
     {
       id: 'recargo_14_cuotas',
       nombre: 'Recargo 14 cuotas',
       esDefault: false,
       rubrosDux: ['CLIMATIZACION', 'COCINAS Y HORNOS', 'HELADERAS Y FREEZERS', 'LAVADO', 'TECNOLOGIA', 'TV, AUDIO Y VIDEO'],
-      tarjeta: { 3: 0, 5: 0, 6: 0, 9: 0, 12: 20, 14: 10 }
+      tarjeta: { 3: 0, '5-naranja': 0, 6: 0, 9: 15, '9-naranja': 0, 12: 20, '14-naranja': 10 }
     }
   ]
 }
-
-// Cuotas de tarjeta que solo aceptan tarjeta Naranja (fijo, no depende del grupo)
-const CUOTAS_TARJETA_NARANJA = [5, 14]
 
 const ConfigContext = createContext(null)
 
@@ -162,8 +162,12 @@ export function ConfigProvider({ children }) {
     }
   }
 
-  function esCuotaTarjetaNaranja(cuotas) {
-    return CUOTAS_TARJETA_NARANJA.includes(Number(cuotas))
+  function esCuotaTarjetaNaranja(clave) {
+    return String(clave).endsWith('-naranja')
+  }
+
+  function cuotasDeClaveTarjeta(clave) {
+    return parseInt(clave, 10)
   }
 
   function detectarGrupoPorRubroDux(rubroDux) {
@@ -184,7 +188,7 @@ export function ConfigProvider({ children }) {
     <ConfigContext.Provider value={{
       config, loading, saveConfig, getTasa,
       getGrupo, getTasaGrupo, detectarGrupoPorRubroDux,
-      getGrupoTarjeta, getTasaTarjetaGrupo, esCuotaTarjetaNaranja, detectarGrupoTarjetaPorRubroDux
+      getGrupoTarjeta, getTasaTarjetaGrupo, esCuotaTarjetaNaranja, cuotasDeClaveTarjeta, detectarGrupoTarjetaPorRubroDux
     }}>
       {children}
     </ConfigContext.Provider>

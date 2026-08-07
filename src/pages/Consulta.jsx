@@ -34,7 +34,7 @@ const PLANES = {
 }
 
 export default function Consulta() {
-  const { config, getTasaGrupo, esCuotaTarjetaNaranja, detectarGrupoPorRubroDux, detectarGrupoTarjetaPorRubroDux } = useConfig()
+  const { config, getTasaGrupo, esCuotaTarjetaNaranja, cuotasDeClaveTarjeta, detectarGrupoPorRubroDux, detectarGrupoTarjetaPorRubroDux } = useConfig()
   const [precio, setPrecio] = useState('')
   const [modoEntrega, setModoEntrega] = useState('0')
   const [pctCustom, setPctCustom] = useState('')
@@ -209,12 +209,12 @@ export default function Consulta() {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(grupoTarjetaActual.tarjeta).sort((a, b) => Number(a[0]) - Number(b[0])).map(([n, tasa]) => {
-                      const { cuota } = calcularCuota(aFinanciar, tasa, Number(n))
+                    {Object.entries(grupoTarjetaActual.tarjeta).sort((a, b) => cuotasDeClaveTarjeta(a[0]) - cuotasDeClaveTarjeta(b[0])).map(([n, tasa]) => {
+                      const { cuota } = calcularCuota(aFinanciar, tasa, cuotasDeClaveTarjeta(n))
                       return (
                         <tr key={n}>
                           <td style={{ padding: '7px 10px', border: '1px solid #ddd', fontWeight: 'bold' }}>
-                            {n} cuotas{esCuotaTarjetaNaranja(n) ? ' (Solo Naranja)' : ''}
+                            {cuotasDeClaveTarjeta(n)} cuotas{esCuotaTarjetaNaranja(n) ? ' (Solo Naranja)' : ''}
                           </td>
                           <td style={{ padding: '7px 10px', border: '1px solid #ddd', textAlign: 'center', fontWeight: 'bold', fontSize: '15px' }}>
                             {formatMoneda(cuota)}
@@ -577,11 +577,11 @@ export default function Consulta() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(grupoTarjetaActual.tarjeta).sort((a, b) => Number(a[0]) - Number(b[0])).map(([n, tasa]) => {
-                    const { cuota } = calcularCuota(aFinanciar, tasa, Number(n))
+                  {Object.entries(grupoTarjetaActual.tarjeta).sort((a, b) => cuotasDeClaveTarjeta(a[0]) - cuotasDeClaveTarjeta(b[0])).map(([n, tasa]) => {
+                    const { cuota } = calcularCuota(aFinanciar, tasa, cuotasDeClaveTarjeta(n))
                     return (
                       <tr key={n} className="border-b border-gray-50 hover:bg-blue-50 transition-colors">
-                        <td className="py-3 px-5 font-bold text-gray-700">{n} cuotas</td>
+                        <td className="py-3 px-5 font-bold text-gray-700">{cuotasDeClaveTarjeta(n)} cuotas</td>
                         <td className="py-3 px-3 text-center">
                           <div className="flex items-center justify-center gap-1.5">
                             {tasa === 0
