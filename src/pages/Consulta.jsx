@@ -34,11 +34,12 @@ const PLANES = {
 }
 
 export default function Consulta() {
-  const { config, getTasaGrupo, getTasaTarjetaGrupo, esCuotaTarjetaNaranja, detectarGrupoPorRubroDux } = useConfig()
+  const { config, getTasaGrupo, esCuotaTarjetaNaranja, detectarGrupoPorRubroDux, detectarGrupoTarjetaPorRubroDux } = useConfig()
   const [precio, setPrecio] = useState('')
   const [modoEntrega, setModoEntrega] = useState('0')
   const [pctCustom, setPctCustom] = useState('')
   const [rubro, setRubro] = useState('general')
+  const [rubroTarjeta, setRubroTarjeta] = useState('general')
   const [abiertos, setAbiertos] = useState({ powercred: false, mensual: true, quincenal: false, semanal: false, tarjeta: false })
   const [ean, setEan] = useState('')
   const [producto, setProducto] = useState(null)
@@ -54,6 +55,7 @@ export default function Consulta() {
   const [errorCatalogo, setErrorCatalogo] = useState('')
 
   const grupoActual = config.gruposTasa.find(g => g.id === rubro) || config.gruposTasa[0]
+  const grupoTarjetaActual = config.gruposTarjeta.find(g => g.id === rubroTarjeta) || config.gruposTarjeta[0]
 
   useEffect(() => {
     buscarRubrosDisponibles().then(setOpcionesRubros)
@@ -76,6 +78,7 @@ export default function Consulta() {
       setProducto(data)
       setPrecio(String(data.precio_pvp))
       setRubro(detectarGrupoPorRubroDux(data.rubro))
+      setRubroTarjeta(detectarGrupoTarjetaPorRubroDux(data.rubro))
     } catch (e) {
       // si falla traer la ficha completa, dejamos al menos los datos básicos que ya teníamos
       setProducto({
@@ -83,6 +86,7 @@ export default function Consulta() {
         sub_rubro: p.sub_rubro, stock: p.stock, descripcion_html: '', fuente_descripcion: null,
       })
       setRubro(detectarGrupoPorRubroDux(p.rubro))
+      setRubroTarjeta(detectarGrupoTarjetaPorRubroDux(p.rubro))
     } finally {
       setBuscando(false)
     }
@@ -113,6 +117,7 @@ export default function Consulta() {
       setProducto(data)
       setPrecio(String(data.precio_pvp))
       setRubro(detectarGrupoPorRubroDux(data.rubro))
+      setRubroTarjeta(detectarGrupoTarjetaPorRubroDux(data.rubro))
     } catch (e) {
       setErrorBusqueda(e.message)
     } finally {
@@ -204,7 +209,7 @@ export default function Consulta() {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(grupoActual.tarjeta).sort((a, b) => Number(a[0]) - Number(b[0])).map(([n, tasa]) => {
+                    {Object.entries(grupoTarjetaActual.tarjeta).sort((a, b) => Number(a[0]) - Number(b[0])).map(([n, tasa]) => {
                       const { cuota } = calcularCuota(aFinanciar, tasa, Number(n))
                       return (
                         <tr key={n}>
@@ -572,7 +577,7 @@ export default function Consulta() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(grupoActual.tarjeta).sort((a, b) => Number(a[0]) - Number(b[0])).map(([n, tasa]) => {
+                  {Object.entries(grupoTarjetaActual.tarjeta).sort((a, b) => Number(a[0]) - Number(b[0])).map(([n, tasa]) => {
                     const { cuota } = calcularCuota(aFinanciar, tasa, Number(n))
                     return (
                       <tr key={n} className="border-b border-gray-50 hover:bg-blue-50 transition-colors">

@@ -20,7 +20,16 @@ function grupoVacio(nombre) {
       mensual: { 3: 0, 6: 0, 9: 0, 12: 0 },
       quincenal: { 4: 0, 6: 0, 8: 0, 10: 0, 12: 0 },
       semanal: { 4: 0, 8: 0, 12: 0, 16: 0, 20: 0, 24: 0 }
-    },
+    }
+  }
+}
+
+function grupoTarjetaVacio(nombre) {
+  return {
+    id: idDesdeNombre(nombre) + '_' + Math.random().toString(36).slice(2, 6),
+    nombre,
+    esDefault: false,
+    rubrosDux: [],
     tarjeta: { 3: 0, 5: 0, 6: 0, 9: 0, 12: 0, 14: 0 }
   }
 }
@@ -37,14 +46,16 @@ export default function Configuracion() {
   const [mora, setMora] = useState(config.mora)
   const [tasas, setTasas] = useState(config.tasas)
   const [grupos, setGrupos] = useState(config.gruposTasa)
+  const [gruposTarjeta, setGruposTarjeta] = useState(config.gruposTarjeta)
 
   const [rubrosDuxDisponibles, setRubrosDuxDisponibles] = useState([])
   const [cargandoRubros, setCargandoRubros] = useState(false)
   const [nuevoGrupoNombre, setNuevoGrupoNombre] = useState('')
+  const [nuevoGrupoTarjetaNombre, setNuevoGrupoTarjetaNombre] = useState('')
   const [nuevaCuota, setNuevaCuota] = useState({})
 
   useEffect(() => {
-    if (tab === 'powercred' && rubrosDuxDisponibles.length === 0) {
+    if ((tab === 'powercred' || tab === 'tarjeta') && rubrosDuxDisponibles.length === 0) {
       cargarRubrosDux()
     }
   }, [tab])
@@ -64,7 +75,7 @@ export default function Configuracion() {
 
   async function guardar() {
     setGuardando(true)
-    await saveConfig({ negocio, pagare, mora, tasas, gruposTasa: grupos })
+    await saveConfig({ negocio, pagare, mora, tasas, gruposTasa: grupos, gruposTarjeta })
     setMensaje('Configuración guardada correctamente')
     setGuardando(false)
     setTimeout(() => setMensaje(''), 3000)
@@ -107,7 +118,7 @@ export default function Configuracion() {
     }))
   }
 
-  // ── Grupos de tasa ──────────────────────────────────────────
+  // ── Grupos de PowerCred ─────────────────────────────────────
   function agregarGrupo() {
     const nombre = nuevoGrupoNombre.trim()
     if (!nombre) return
@@ -129,7 +140,7 @@ export default function Configuracion() {
         const tiene = g.rubrosDux.includes(rubro)
         return { ...g, rubrosDux: tiene ? g.rubrosDux.filter(r => r !== rubro) : [...g.rubrosDux, rubro] }
       }
-      // un rubro no puede pertenecer a dos grupos a la vez
+      // un rubro no puede pertenecer a dos grupos de PowerCred a la vez
       return { ...g, rubrosDux: g.rubrosDux.filter(r => r !== rubro) }
     }))
   }
@@ -155,8 +166,46 @@ export default function Configuracion() {
     }))
   }
 
+  // ── Grupos de Tarjeta de Crédito (independientes) ───────────
+  function agregarGrupoTarjeta() {
+    const nombre = nuevoGrupoTarjetaNombre.trim()
+    if (!nombre) return
+    setGruposTarjeta(prev => [...prev, grupoTarjetaVacio(nombre)])
+    setNuevoGrupoTarjetaNombre('')
+  }
+
+  function eliminarGrupoTarjeta(id) {
+    setGruposTarjeta(prev => prev.filter(g => g.id !== id))
+  }
+
+  function renombrarGrupoTarjeta(id, nombre) {
+    setGruposTarjeta(prev => prev.map(g => g.id === id ? { ...g, nombre } : g))
+  }
+
+  function toggleRubroGrupoTarjeta(grupoId, rubro) {
+    setGruposTarjeta(prev => prev.map(g => {
+      if (g.id === grupoId) {
+        const tiene = g.rubrosDux.includes(rubro)
+        return { ...g, rubrosDux: tiene ? g.rubrosDux.filter(r => r !== rubro) : [...g.rubrosDux, rubro] }
+      }
+      // un rubro no puede pertenecer a dos grupos de tarjeta a la vez
+      return { ...g, rubrosDux: g.rubrosDux.filter(r => r !== rubro) }
+    }))
+  }
+
+  function seleccionarTodosRubrosTarjeta(grupoId) {
+    setGruposTarjeta(prev => prev.map(g => {
+      if (g.id === grupoId) return { ...g, rubrosDux: [...rubrosDuxDisponibles] }
+      return { ...g, rubrosDux: [] }
+    }))
+  }
+
+  function deseleccionarTodosRubrosTarjeta(grupoId) {
+    setGruposTarjeta(prev => prev.map(g => g.id === grupoId ? { ...g, rubrosDux: [] } : g))
+  }
+
   function actualizarTarjetaGrupo(grupoId, cuotas, valor) {
-    setGrupos(prev => prev.map(g => g.id !== grupoId ? g : {
+    setGruposTarjeta(prev => prev.map(g => g.id !== grupoId ? g : {
       ...g,
       tarjeta: { ...g.tarjeta, [cuotas]: Number(valor) }
     }))
@@ -165,7 +214,7 @@ export default function Configuracion() {
   function agregarCuotaTarjeta(grupoId) {
     const cuotas = parseInt(nuevaCuota[grupoId])
     if (!cuotas || cuotas <= 0) return
-    setGrupos(prev => prev.map(g => g.id !== grupoId ? g : {
+    setGruposTarjeta(prev => prev.map(g => g.id !== grupoId ? g : {
       ...g,
       tarjeta: { ...g.tarjeta, [cuotas]: g.tarjeta[cuotas] ?? 0 }
     }))
@@ -173,7 +222,7 @@ export default function Configuracion() {
   }
 
   function quitarCuotaTarjeta(grupoId, cuotas) {
-    setGrupos(prev => prev.map(g => {
+    setGruposTarjeta(prev => prev.map(g => {
       if (g.id !== grupoId) return g
       const { [cuotas]: _, ...resto } = g.tarjeta
       return { ...g, tarjeta: resto }
@@ -256,7 +305,7 @@ export default function Configuracion() {
               (mensual/quincenal/semanal). Cuando se busca un producto (por código de barras
               o por categoría), el sistema detecta el grupo automáticamente. El grupo <strong>General</strong>{' '}
               es el que se usa cuando el rubro del producto no está asignado a ningún otro grupo.
-              Las tasas de Tarjeta de Crédito se cargan aparte, en la pestaña "Tarjeta de Crédito".
+              Estos grupos son independientes de los de Tarjeta de Crédito (pestaña aparte).
             </p>
           </div>
 
@@ -368,61 +417,136 @@ export default function Configuracion() {
         </div>
       )}
 
-      {/* Tarjeta de Crédito: solo tasas por grupo */}
+      {/* Tarjeta de Crédito: grupos propios, independientes de PowerCred */}
       {tab === 'tarjeta' && (
         <div className="space-y-4">
           <div className="card">
             <p className="text-sm text-gray-500">
-              Tasas de Tarjeta de Crédito por grupo. Los grupos y sus rubros de Dux se
-              administran en la pestaña "PowerCred".
+              Los grupos de Tarjeta de Crédito son independientes de los de PowerCred: un rubro
+              puede estar en un grupo distinto (o en ninguno) acá. El grupo <strong>General</strong>{' '}
+              se usa cuando el rubro del producto no está asignado a ningún grupo de tarjeta.
             </p>
           </div>
 
-          {grupos.map(grupo => (
-            <div key={grupo.id} className="card space-y-3">
-              <h3 className="font-semibold text-gray-900">{grupo.nombre}</h3>
-              <div className="flex flex-wrap gap-3 items-end">
-                {Object.entries(grupo.tarjeta || {})
-                  .sort((a, b) => Number(a[0]) - Number(b[0]))
-                  .map(([cuotas, tasa]) => (
-                    <div key={cuotas} className="flex flex-col items-center gap-1">
-                      <div className="text-xs text-gray-500 flex items-center gap-1">
-                        {cuotas} cuotas
-                        {esCuotaTarjetaNaranja(cuotas) && (
-                          <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-orange-50 text-orange-600">Naranja</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          className="input-field w-20 text-center text-sm"
-                          value={tasa}
-                          onChange={e => actualizarTarjetaGrupo(grupo.id, cuotas, e.target.value)}
-                          step="0.5" min="0"
-                        />
-                        <span className="text-gray-400 text-sm">%</span>
-                        <button onClick={() => quitarCuotaTarjeta(grupo.id, cuotas)} className="text-gray-300 hover:text-red-500 text-sm ml-0.5">
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    className="input-field w-16 text-center text-sm"
-                    placeholder="N°"
-                    value={nuevaCuota[grupo.id] || ''}
-                    onChange={e => setNuevaCuota(prev => ({ ...prev, [grupo.id]: e.target.value }))}
-                    min="1"
-                  />
-                  <button onClick={() => agregarCuotaTarjeta(grupo.id)} className="btn-secondary text-xs px-2 py-1.5">
-                    + cuota
+          {gruposTarjeta.map(grupo => (
+            <div key={grupo.id} className="card space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <input
+                  type="text"
+                  className="input-field font-semibold text-gray-900 max-w-xs"
+                  value={grupo.nombre}
+                  onChange={e => renombrarGrupoTarjeta(grupo.id, e.target.value)}
+                  disabled={grupo.esDefault}
+                />
+                {!grupo.esDefault && (
+                  <button onClick={() => eliminarGrupoTarjeta(grupo.id)} className="text-xs text-red-500 hover:underline">
+                    Eliminar grupo
                   </button>
+                )}
+              </div>
+
+              {/* Rubros de Dux asignados */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="label mb-0">Rubros de Dux en este grupo</label>
+                  <div className="flex gap-3 text-xs">
+                    <button onClick={() => seleccionarTodosRubrosTarjeta(grupo.id)} className="text-blue-600 hover:underline">
+                      Seleccionar todos
+                    </button>
+                    <button onClick={() => deseleccionarTodosRubrosTarjeta(grupo.id)} className="text-gray-500 hover:underline">
+                      Ninguno
+                    </button>
+                  </div>
+                </div>
+                {cargandoRubros ? (
+                  <div className="text-sm text-gray-400">Cargando rubros de Dux...</div>
+                ) : (
+                  <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2 flex flex-wrap gap-2">
+                    {rubrosDuxDisponibles.map(r => {
+                      const activo = grupo.rubrosDux.includes(r)
+                      return (
+                        <button
+                          key={r}
+                          onClick={() => toggleRubroGrupoTarjeta(grupo.id, r)}
+                          className={`px-2.5 py-1 rounded-md text-xs border transition-colors ${
+                            activo ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          {r}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                {grupo.esDefault && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    "General" se aplica a cualquier rubro que no esté asignado a otro grupo de tarjeta, no hace falta tildar nada acá.
+                  </p>
+                )}
+              </div>
+
+              {/* Tasas Tarjeta */}
+              <div>
+                <div className="text-sm font-semibold text-gray-700 mb-2">Tasas Tarjeta de Crédito</div>
+                <div className="flex flex-wrap gap-3 items-end">
+                  {Object.entries(grupo.tarjeta || {})
+                    .sort((a, b) => Number(a[0]) - Number(b[0]))
+                    .map(([cuotas, tasa]) => (
+                      <div key={cuotas} className="flex flex-col items-center gap-1">
+                        <div className="text-xs text-gray-500 flex items-center gap-1">
+                          {cuotas} cuotas
+                          {esCuotaTarjetaNaranja(cuotas) && (
+                            <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-orange-50 text-orange-600">Naranja</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            className="input-field w-20 text-center text-sm"
+                            value={tasa}
+                            onChange={e => actualizarTarjetaGrupo(grupo.id, cuotas, e.target.value)}
+                            step="0.5" min="0"
+                          />
+                          <span className="text-gray-400 text-sm">%</span>
+                          <button onClick={() => quitarCuotaTarjeta(grupo.id, cuotas)} className="text-gray-300 hover:text-red-500 text-sm ml-0.5">
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      className="input-field w-16 text-center text-sm"
+                      placeholder="N°"
+                      value={nuevaCuota[grupo.id] || ''}
+                      onChange={e => setNuevaCuota(prev => ({ ...prev, [grupo.id]: e.target.value }))}
+                      min="1"
+                    />
+                    <button onClick={() => agregarCuotaTarjeta(grupo.id)} className="btn-secondary text-xs px-2 py-1.5">
+                      + cuota
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           ))}
+
+          {/* Agregar grupo nuevo */}
+          <div className="card">
+            <label className="label">Agregar grupo nuevo</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                className="input-field flex-1"
+                placeholder="Ej: Sin interés especial"
+                value={nuevoGrupoTarjetaNombre}
+                onChange={e => setNuevoGrupoTarjetaNombre(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && agregarGrupoTarjeta()}
+              />
+              <button onClick={agregarGrupoTarjeta} className="btn-primary px-5">Agregar</button>
+            </div>
+          </div>
         </div>
       )}
 
