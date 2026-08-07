@@ -134,7 +134,6 @@ export default function Consulta() {
 
   function getTasaRubro(n, peri) {
     if (rubro === 'general') return getTasa('hogar', peri, n)
-    if (rubro === 'movilidad') return getTasa('movilidad', peri, n)
     return getTasa('colchones', peri, n)
   }
 
@@ -146,7 +145,7 @@ export default function Consulta() {
     })
   }
 
-  const rubroLabel = rubro === 'general' ? 'General' : rubro === 'movilidad' ? 'Movilidad' : 'Colchones y Sillones'
+  const rubroLabel = rubro === 'general' ? 'General' : 'Colchones y Sillones'
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
@@ -474,9 +473,8 @@ export default function Consulta() {
                 <label className="label mb-3">Rubro</label>
                 <div className="flex gap-3">
                   {[
-                    { val: 'general',    label: 'General',              desc: 'Tasas estándar del sistema' },
-                    { val: 'colchones',  label: 'Colchones y Sillones', desc: 'Sin interés hasta 6 meses' },
-                    { val: 'movilidad',  label: 'Movilidad',            desc: 'Bicis, motos · 5% mensual' },
+                    { val: 'general',   label: 'General',              desc: 'Tasas estándar del sistema' },
+                    { val: 'colchones', label: 'Colchones y Sillones', desc: 'Sin interés hasta 6 meses' },
                   ].map(({ val, label, desc }) => (
                     <button
                       key={val}
