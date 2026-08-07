@@ -62,14 +62,14 @@ const DEFAULT_CONFIG = {
       nombre: 'General',
       esDefault: true,
       rubrosDux: [],
-      tarjeta: { 3: 0, '5-naranja': 0, 6: 0, 9: 15, '9-naranja': 0, 12: 20, '14-naranja': 0 }
+      tarjeta: { 3: 0, '5-naranja': 0, 6: 0, 9: 9, '9-naranja': 0, 12: 13, '14-naranja': 0 }
     },
     {
       id: 'recargo_14_cuotas',
       nombre: 'Recargo 14 cuotas',
       esDefault: false,
       rubrosDux: ['CLIMATIZACION', 'COCINAS Y HORNOS', 'HELADERAS Y FREEZERS', 'LAVADO', 'TECNOLOGIA', 'TV, AUDIO Y VIDEO'],
-      tarjeta: { 3: 0, '5-naranja': 0, 6: 0, 9: 15, '9-naranja': 0, 12: 20, '14-naranja': 10 }
+      tarjeta: { 3: 0, '5-naranja': 0, 6: 0, 9: 9, '9-naranja': 0, 12: 13, '14-naranja': 10 }
     }
   ]
 }
