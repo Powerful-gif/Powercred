@@ -81,26 +81,27 @@ export function calcularPrimerVencimiento(fechaInicio, periodicidad) {
 // Generar todas las fechas de vencimiento
 export function generarFechasVencimiento(primerVencimiento, cantidadCuotas, periodicidad) {
   const fechas = []
-  let fechaActual = primerVencimiento
+  const base = new Date(primerVencimiento + 'T12:00:00')
 
   for (let i = 0; i < cantidadCuotas; i++) {
     if (i === 0) {
-      fechas.push(fechaActual)
+      fechas.push(primerVencimiento)
       continue
     }
-    const d = new Date(fechaActual + 'T12:00:00')
+    // Cada cuota se calcula siempre a partir de la fecha base (sin ajustar),
+    // nunca de la cuota anterior ya corrida por fin de semana — si no, el
+    // corrimiento se va acumulando mes a mes.
+    const d = new Date(base)
     if (periodicidad === 'mensual') {
-      d.setMonth(d.getMonth() + 1)
-      const fecha = d.toISOString().split('T')[0]
-      fechaActual = ajustarFinDeSemana(fecha)
+      d.setMonth(base.getMonth() + i)
+      fechas.push(ajustarFinDeSemana(d.toISOString().split('T')[0]))
     } else if (periodicidad === 'quincenal') {
-      d.setDate(d.getDate() + 15)
-      fechaActual = d.toISOString().split('T')[0]
+      d.setDate(base.getDate() + 15 * i)
+      fechas.push(d.toISOString().split('T')[0])
     } else {
-      d.setDate(d.getDate() + 7)
-      fechaActual = d.toISOString().split('T')[0]
+      d.setDate(base.getDate() + 7 * i)
+      fechas.push(d.toISOString().split('T')[0])
     }
-    fechas.push(fechaActual)
   }
   return fechas
 }
