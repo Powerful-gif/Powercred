@@ -111,7 +111,7 @@ export function generarFechasVencimiento(primerVencimiento, cantidadCuotas, peri
 
 export function calcularMora(importeCuota, fechaVencimiento, tasaDiaria = 0.3) {
   const hoy = hoyArgentina()
-  if (fechaVencimiento >= hoy) return { dias: 0, mora: 0, total: importeCuota }
+  if (fechaVencimiento >= hoy) return { dias: 0, mora: 0, total: Math.round(importeCuota * 100) / 100 }
   const dias = diasEntre(fechaVencimiento, hoy)
   const mora = Math.round(dias * (tasaDiaria / 100) * importeCuota * 100) / 100
   return { dias, mora, total: Math.round((importeCuota + mora) * 100) / 100 }
