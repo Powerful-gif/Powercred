@@ -4,7 +4,9 @@
 -- se perdían los rubros que empiezan después de la "L" alfabéticamente.
 -- La marca ahora se consulta aparte, filtrada por rubro (ver accion=marcas
 -- en api/buscar-catalogo.js), que siempre devuelve mucho menos de 1.000 filas.
-CREATE OR REPLACE VIEW v_rubros_subrubros AS
+DROP VIEW IF EXISTS v_rubros_subrubros;
+
+CREATE VIEW v_rubros_subrubros AS
 SELECT DISTINCT rubro, sub_rubro
 FROM catalogo_dux
 WHERE stock > 0 AND rubro IS NOT NULL
