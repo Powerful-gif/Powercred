@@ -31,13 +31,29 @@ export default async function handler(req, res) {
   if (accion === 'rubros') {
     const { data, error } = await supabase
       .from('v_rubros_subrubros')
-      .select('rubro, sub_rubro, marca')
+      .select('rubro, sub_rubro')
     if (error) return res.status(502).json({ error: 'Error consultando rubros.' })
 
     const filtrado = RUBROS_HABILITADOS.length
       ? data.filter(r => RUBROS_HABILITADOS.includes(r.rubro))
       : data
     return res.status(200).json(filtrado)
+  }
+
+  if (accion === 'marcas') {
+    const { rubro, sub_rubro } = req.query
+    if (!rubro) return res.status(400).json({ error: 'Falta el rubro.' })
+    let query = supabase
+      .from('catalogo_dux')
+      .select('marca')
+      .eq('rubro', rubro)
+      .gt('stock', 0)
+      .not('marca', 'is', null)
+    if (sub_rubro) query = query.eq('sub_rubro', sub_rubro)
+    const { data, error } = await query
+    if (error) return res.status(502).json({ error: 'Error consultando marcas.' })
+    const marcasUnicas = [...new Set(data.map(r => r.marca))].filter(Boolean).sort()
+    return res.status(200).json(marcasUnicas)
   }
 
   if (accion === 'rubros_admin') {

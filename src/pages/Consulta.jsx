@@ -55,6 +55,7 @@ export default function Consulta() {
   const [resultadosCatalogo, setResultadosCatalogo] = useState(null)
   const [buscandoCatalogo, setBuscandoCatalogo] = useState(false)
   const [errorCatalogo, setErrorCatalogo] = useState('')
+  const [marcasDisponibles, setMarcasDisponibles] = useState([])
 
   const grupoActual = config.gruposTasa.find(g => g.id === rubro) || config.gruposTasa[0]
   const grupoTarjetaActual = config.gruposTarjeta.find(g => g.id === rubroTarjeta) || config.gruposTarjeta[0]
@@ -63,14 +64,22 @@ export default function Consulta() {
     buscarRubrosDisponibles().then(setOpcionesRubros)
   }, [])
 
+  useEffect(() => {
+    if (!rubroCatSel) {
+      setMarcasDisponibles([])
+      return
+    }
+    const params = new URLSearchParams({ accion: 'marcas', rubro: rubroCatSel })
+    if (subRubroCatSel) params.set('sub_rubro', subRubroCatSel)
+    fetch(`/api/buscar-catalogo?${params.toString()}`)
+      .then(r => r.json())
+      .then(data => setMarcasDisponibles(Array.isArray(data) ? data : []))
+      .catch(() => setMarcasDisponibles([]))
+  }, [rubroCatSel, subRubroCatSel])
+
   const rubrosUnicos = [...new Set(opcionesRubros.map(r => r.rubro))].filter(Boolean).sort()
   const subRubrosDisponibles = [...new Set(
     opcionesRubros.filter(r => r.rubro === rubroCatSel).map(r => r.sub_rubro)
-  )].filter(Boolean).sort()
-  const marcasDisponibles = [...new Set(
-    opcionesRubros
-      .filter(r => r.rubro === rubroCatSel && (!subRubroCatSel || r.sub_rubro === subRubroCatSel))
-      .map(r => r.marca)
   )].filter(Boolean).sort()
 
   async function elegirProducto(p) {
