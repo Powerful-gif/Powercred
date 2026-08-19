@@ -16,10 +16,11 @@ async function buscarRubrosDisponibles() {
   return r.json()
 }
 
-async function buscarPorCatalogo({ rubro, subRubro, nombre }) {
+async function buscarPorCatalogo({ rubro, subRubro, marca, nombre }) {
   const params = new URLSearchParams()
   if (rubro) params.set('rubro', rubro)
   if (subRubro) params.set('sub_rubro', subRubro)
+  if (marca) params.set('marca', marca)
   if (nombre) params.set('nombre', nombre)
   const r = await fetch(`/api/buscar-catalogo?${params.toString()}`)
   const data = await r.json()
@@ -49,6 +50,7 @@ export default function Consulta() {
   const [opcionesRubros, setOpcionesRubros] = useState([])
   const [rubroCatSel, setRubroCatSel] = useState('')
   const [subRubroCatSel, setSubRubroCatSel] = useState('')
+  const [marcaCatSel, setMarcaCatSel] = useState('')
   const [nombreCatFiltro, setNombreCatFiltro] = useState('')
   const [resultadosCatalogo, setResultadosCatalogo] = useState(null)
   const [buscandoCatalogo, setBuscandoCatalogo] = useState(false)
@@ -64,6 +66,11 @@ export default function Consulta() {
   const rubrosUnicos = [...new Set(opcionesRubros.map(r => r.rubro))].filter(Boolean).sort()
   const subRubrosDisponibles = [...new Set(
     opcionesRubros.filter(r => r.rubro === rubroCatSel).map(r => r.sub_rubro)
+  )].filter(Boolean).sort()
+  const marcasDisponibles = [...new Set(
+    opcionesRubros
+      .filter(r => r.rubro === rubroCatSel && (!subRubroCatSel || r.sub_rubro === subRubroCatSel))
+      .map(r => r.marca)
   )].filter(Boolean).sort()
 
   async function elegirProducto(p) {
@@ -97,7 +104,7 @@ export default function Consulta() {
     setErrorCatalogo('')
     setResultadosCatalogo(null)
     try {
-      const data = await buscarPorCatalogo({ rubro: rubroCatSel, subRubro: subRubroCatSel, nombre: nombreCatFiltro })
+      const data = await buscarPorCatalogo({ rubro: rubroCatSel, subRubro: subRubroCatSel, marca: marcaCatSel, nombre: nombreCatFiltro })
       setResultadosCatalogo(data)
     } catch (e) {
       setErrorCatalogo(e.message)
@@ -236,11 +243,11 @@ export default function Consulta() {
       <div className="card space-y-4">
         <h2 className="font-bold text-gray-800 text-lg">Buscar por categoría</h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <select
             className="input-field"
             value={rubroCatSel}
-            onChange={e => { setRubroCatSel(e.target.value); setSubRubroCatSel('') }}
+            onChange={e => { setRubroCatSel(e.target.value); setSubRubroCatSel(''); setMarcaCatSel('') }}
           >
             <option value="">Todos los rubros</option>
             {rubrosUnicos.map(r => <option key={r} value={r}>{r}</option>)}
@@ -249,11 +256,21 @@ export default function Consulta() {
           <select
             className="input-field"
             value={subRubroCatSel}
-            onChange={e => setSubRubroCatSel(e.target.value)}
+            onChange={e => { setSubRubroCatSel(e.target.value); setMarcaCatSel('') }}
             disabled={!rubroCatSel}
           >
             <option value="">Todos los sub-rubros</option>
             {subRubrosDisponibles.map(sr => <option key={sr} value={sr}>{sr}</option>)}
+          </select>
+
+          <select
+            className="input-field"
+            value={marcaCatSel}
+            onChange={e => setMarcaCatSel(e.target.value)}
+            disabled={!rubroCatSel}
+          >
+            <option value="">Todas las marcas</option>
+            {marcasDisponibles.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
 
           <input

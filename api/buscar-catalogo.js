@@ -31,7 +31,7 @@ export default async function handler(req, res) {
   if (accion === 'rubros') {
     const { data, error } = await supabase
       .from('v_rubros_subrubros')
-      .select('rubro, sub_rubro')
+      .select('rubro, sub_rubro, marca')
     if (error) return res.status(502).json({ error: 'Error consultando rubros.' })
 
     const filtrado = RUBROS_HABILITADOS.length
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
     return res.status(200).json(rubrosUnicos)
   }
 
-  const { rubro, sub_rubro, nombre } = req.query
+  const { rubro, sub_rubro, marca, nombre } = req.query
   let query = supabase
     .from('catalogo_dux')
     .select('sku, nombre, marca, rubro, sub_rubro, precio, stock')
@@ -57,6 +57,7 @@ export default async function handler(req, res) {
 
   if (rubro) query = query.eq('rubro', rubro)
   if (sub_rubro) query = query.eq('sub_rubro', sub_rubro)
+  if (marca) query = query.eq('marca', marca)
   if (nombre) query = query.ilike('nombre', `%${nombre}%`)
 
   query = query.order('marca', { ascending: true }).order('nombre', { ascending: true }).limit(200)
