@@ -277,8 +277,35 @@ export default function PantallaCobranza() {
         </div>
       )}
 
+      {/* Resumen de todos los créditos, cuando hay más de uno */}
+      {creditosConCuotas.length > 1 && !loading && (
+        <div className="card bg-red-50 border-red-200">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+            <div className="font-bold text-red-800">
+              ⚠ Este cliente tiene {creditosConCuotas.length} créditos activos
+            </div>
+            <div className="text-sm text-red-700">
+              Total a cobrar: <span className="font-bold">
+                {formatMoneda(creditosConCuotas.reduce((sum, c) => sum + c.cuotas.reduce((s, q) => s + q.moraCalculada.total, 0), 0))}
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {creditosConCuotas.map(credito => (
+              <button
+                key={credito.id}
+                onClick={() => document.getElementById(`credito-${credito.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                className="px-3 py-1.5 rounded-lg bg-white border border-red-300 text-red-700 text-sm font-medium hover:bg-red-100 transition-colors"
+              >
+                {credito.numero_credito} ({credito.cuotas.length} cuota{credito.cuotas.length !== 1 ? 's' : ''}) →
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {creditosConCuotas.map(credito => (
-        <div key={credito.id} className="card">
+        <div key={credito.id} id={`credito-${credito.id}`} className="card scroll-mt-4">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200">
             <div>
               <span className="font-mono font-bold text-orange-700">{credito.numero_credito}</span>
