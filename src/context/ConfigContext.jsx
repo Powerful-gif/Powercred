@@ -18,6 +18,9 @@ const DEFAULT_CONFIG = {
     ciudad: 'Almafuerte'
   },
   mora: { tasa_diaria: 0.3 },
+  // Opciones de costo de "papeles" (trámites) para rubros que lo requieran,
+  // como Motos. Se suman al precio del artículo antes de calcular cuotas.
+  papelesOpciones: [],
   tasas: {
     efectivo: {
       mensual: { 3: 24, 6: 48, 9: 72 },
@@ -53,6 +56,21 @@ const DEFAULT_CONFIG = {
         quincenal: { 4: 0, 6: 0, 8: 0, 10: 0, 12: 0 },
         semanal: { 4: 0, 8: 0, 12: 0, 16: 0, 20: 0, 24: 0 }
       }
+    },
+    {
+      id: 'motos',
+      nombre: 'Motos',
+      esDefault: false,
+      // "RUBRO::SUBRUBRO" apunta a un sub-rubro específico (no todo el rubro)
+      rubrosDux: ['MOVILIDAD::MOTOS'],
+      descuentoEfectivo: 0,
+      descuentoTransferencia: 0,
+      requierePapeles: true,
+      powercred: {
+        mensual: { 3: 15, 6: 30, 9: 45, 12: 60 },
+        quincenal: { 4: 10, 6: 15, 8: 20, 10: 25, 12: 30 },
+        semanal: { 4: 5, 8: 10, 12: 15, 16: 20, 20: 25, 24: 30 }
+      }
     }
   ],
   // Grupos de Tarjeta de Crédito: totalmente independientes de los de
@@ -74,6 +92,14 @@ const DEFAULT_CONFIG = {
       esDefault: false,
       rubrosDux: ['CLIMATIZACION', 'COCINAS Y HORNOS', 'HELADERAS Y FREEZERS', 'LAVADO', 'TECNOLOGIA', 'TV, AUDIO Y VIDEO', 'MOVILIDAD'],
       tarjeta: { 3: 0, '4-naranja': 0, '5-naranja': 0, 6: 0, 9: 9, '9-naranja': 0, 12: 13, '14-naranja': 10 }
+    },
+    {
+      id: 'motos',
+      nombre: 'Motos',
+      esDefault: false,
+      // Mismas tasas con cualquier tarjeta, incluida Naranja (no hay claves "-naranja").
+      rubrosDux: ['MOVILIDAD::MOTOS'],
+      tarjeta: { 3: 11, 6: 21, 9: 32, 12: 42 }
     }
   ]
 }
@@ -106,6 +132,7 @@ export function ConfigProvider({ children }) {
         merged.gruposTarjeta = (data.datos.gruposTarjeta && data.datos.gruposTarjeta.length)
           ? data.datos.gruposTarjeta
           : DEFAULT_CONFIG.gruposTarjeta
+        merged.papelesOpciones = data.datos.papelesOpciones || DEFAULT_CONFIG.papelesOpciones
         setConfig(merged)
       }
     } catch (e) {
@@ -174,18 +201,25 @@ export function ConfigProvider({ children }) {
     return parseInt(clave, 10)
   }
 
-  function detectarGrupoPorRubroDux(rubroDux) {
-    const match = config.gruposTasa.find(g => (g.rubrosDux || []).includes(rubroDux))
-    if (match) return match.id
-    const porDefecto = config.gruposTasa.find(g => g.esDefault)
-    return porDefecto ? porDefecto.id : config.gruposTasa[0]?.id
+  // Busca primero un match de "RUBRO::SUBRUBRO" (más específico) y recién
+  // después uno de solo "RUBRO" (todo el rubro, cualquier sub-rubro).
+  function buscarGrupoPorRubro(grupos, rubroDux, subRubroDux) {
+    if (subRubroDux) {
+      const clave = `${rubroDux}::${subRubroDux}`
+      const matchEspecifico = grupos.find(g => (g.rubrosDux || []).includes(clave))
+      if (matchEspecifico) return matchEspecifico
+    }
+    const match = grupos.find(g => (g.rubrosDux || []).includes(rubroDux))
+    if (match) return match
+    return grupos.find(g => g.esDefault) || grupos[0]
   }
 
-  function detectarGrupoTarjetaPorRubroDux(rubroDux) {
-    const match = config.gruposTarjeta.find(g => (g.rubrosDux || []).includes(rubroDux))
-    if (match) return match.id
-    const porDefecto = config.gruposTarjeta.find(g => g.esDefault)
-    return porDefecto ? porDefecto.id : config.gruposTarjeta[0]?.id
+  function detectarGrupoPorRubroDux(rubroDux, subRubroDux) {
+    return buscarGrupoPorRubro(config.gruposTasa, rubroDux, subRubroDux)?.id
+  }
+
+  function detectarGrupoTarjetaPorRubroDux(rubroDux, subRubroDux) {
+    return buscarGrupoPorRubro(config.gruposTarjeta, rubroDux, subRubroDux)?.id
   }
 
   return (

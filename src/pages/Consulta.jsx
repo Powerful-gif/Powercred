@@ -56,6 +56,7 @@ export default function Consulta() {
   const [buscandoCatalogo, setBuscandoCatalogo] = useState(false)
   const [errorCatalogo, setErrorCatalogo] = useState('')
   const [marcasDisponibles, setMarcasDisponibles] = useState([])
+  const [papelesSeleccionado, setPapelesSeleccionado] = useState('')
 
   const grupoActual = config.gruposTasa.find(g => g.id === rubro) || config.gruposTasa[0]
   const grupoTarjetaActual = config.gruposTarjeta.find(g => g.id === rubroTarjeta) || config.gruposTarjeta[0]
@@ -88,21 +89,22 @@ export default function Consulta() {
     setErrorBusqueda('')
     setBuscando(true)
     setProducto(null)
+    setPapelesSeleccionado('')
     document.getElementById('calculadora')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     try {
       const data = await buscarPorEan(p.sku)
       setProducto(data)
       setPrecio(String(data.precio_pvp))
-      setRubro(detectarGrupoPorRubroDux(data.rubro))
-      setRubroTarjeta(detectarGrupoTarjetaPorRubroDux(data.rubro))
+      setRubro(detectarGrupoPorRubroDux(data.rubro, data.sub_rubro))
+      setRubroTarjeta(detectarGrupoTarjetaPorRubroDux(data.rubro, data.sub_rubro))
     } catch (e) {
       // si falla traer la ficha completa, dejamos al menos los datos básicos que ya teníamos
       setProducto({
         sku: p.sku, nombre: p.nombre, marca: p.marca, rubro: p.rubro,
         sub_rubro: p.sub_rubro, stock: p.stock, descripcion_html: '', fuente_descripcion: null,
       })
-      setRubro(detectarGrupoPorRubroDux(p.rubro))
-      setRubroTarjeta(detectarGrupoTarjetaPorRubroDux(p.rubro))
+      setRubro(detectarGrupoPorRubroDux(p.rubro, p.sub_rubro))
+      setRubroTarjeta(detectarGrupoTarjetaPorRubroDux(p.rubro, p.sub_rubro))
     } finally {
       setBuscando(false)
     }
@@ -128,12 +130,13 @@ export default function Consulta() {
     setBuscando(true)
     setErrorBusqueda('')
     setProducto(null)
+    setPapelesSeleccionado('')
     try {
       const data = await buscarPorEan(valor)
       setProducto(data)
       setPrecio(String(data.precio_pvp))
-      setRubro(detectarGrupoPorRubroDux(data.rubro))
-      setRubroTarjeta(detectarGrupoTarjetaPorRubroDux(data.rubro))
+      setRubro(detectarGrupoPorRubroDux(data.rubro, data.sub_rubro))
+      setRubroTarjeta(detectarGrupoTarjetaPorRubroDux(data.rubro, data.sub_rubro))
     } catch (e) {
       setErrorBusqueda(e.message)
     } finally {
@@ -144,15 +147,19 @@ export default function Consulta() {
 
   const pct = modoEntrega === 'custom' ? null : parseFloat(modoEntrega)
   const precioNum = parseFloat(precio) || 0
+  const requierePapeles = !!grupoActual?.requierePapeles
+  const papelesElegido = (config.papelesOpciones || []).find(p => p.id === papelesSeleccionado)
+  const costoPapeles = papelesElegido?.costo || 0
+  const precioBase = requierePapeles ? precioNum + costoPapeles : precioNum
   const descuentoEfectivo = grupoActual?.descuentoEfectivo ?? 10
   const descuentoTransferencia = grupoActual?.descuentoTransferencia ?? 0
   const precioEfectivo = precioNum * (1 - descuentoEfectivo / 100)
   const precioTransferencia = precioNum * (1 - descuentoTransferencia / 100)
   const entrega = modoEntrega === 'custom'
     ? (parseFloat(pctCustom) || 0)
-    : Math.round(precioNum * pct / 100)
-  const aFinanciar = Math.max(0, precioNum - entrega)
-  const hayImporte = aFinanciar > 0
+    : Math.round(precioBase * pct / 100)
+  const aFinanciar = Math.max(0, precioBase - entrega)
+  const hayImporte = aFinanciar > 0 && (!requierePapeles || !!papelesSeleccionado)
 
   function toggle(peri) {
     setAbiertos(prev => ({ ...prev, [peri]: !prev[peri] }))
@@ -188,6 +195,7 @@ export default function Consulta() {
             </div>
             <div style={{ display: 'flex', gap: '20px', background: '#f5f5f5', padding: '10px 14px', borderRadius: '8px', marginBottom: '18px', fontSize: '13px' }}>
               <span><strong>Precio:</strong> {formatMoneda(precioNum)}</span>
+              {requierePapeles && papelesElegido && <span><strong>Papeles ({papelesElegido.nombre}):</strong> {formatMoneda(costoPapeles)}</span>}
               {descuentoEfectivo > 0 && <span><strong>Efectivo ({descuentoEfectivo}% off):</strong> {formatMoneda(precioEfectivo)}</span>}
               {descuentoTransferencia > 0 && <span><strong>Transferencia ({descuentoTransferencia}% off):</strong> {formatMoneda(precioTransferencia)}</span>}
               {entrega > 0 && <span><strong>Entrega{pct ? ` (${pct}%)` : ''}:</strong> {formatMoneda(entrega)}</span>}
@@ -436,6 +444,42 @@ export default function Consulta() {
           )}
         </div>
 
+        {precioNum > 0 && requierePapeles && (
+          <div>
+            <label className="label mb-2">Papeles</label>
+            {(config.papelesOpciones || []).length === 0 ? (
+              <div className="text-sm text-gray-400">
+                No hay opciones de papeles cargadas todavía (Configuración → Papeles).
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {config.papelesOpciones.map(op => (
+                  <button
+                    key={op.id}
+                    onClick={() => setPapelesSeleccionado(op.id)}
+                    className={`px-4 py-2 rounded-lg border-2 text-sm font-medium text-left transition-colors ${
+                      papelesSeleccionado === op.id
+                        ? 'border-orange-500 bg-orange-50 text-orange-700'
+                        : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                    }`}
+                  >
+                    <div>{op.nombre}</div>
+                    <div className="text-xs text-gray-400">{formatMoneda(op.costo)}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {papelesElegido ? (
+              <div className="mt-3 p-3 bg-gray-50 rounded-xl text-sm">
+                <span className="text-gray-500">Precio con papeles ({papelesElegido.nombre}):</span>{' '}
+                <span className="font-bold text-gray-900">{formatMoneda(precioBase)}</span>
+              </div>
+            ) : (
+              <div className="text-xs text-gray-400 mt-2">Elegí una opción de papeles para ver las cuotas.</div>
+            )}
+          </div>
+        )}
+
         <div>
           <label className="label mb-2">Entrega inicial</label>
           <div className="flex flex-wrap gap-2 items-center">
@@ -472,7 +516,7 @@ export default function Consulta() {
             )}
           </div>
 
-          {precioNum > 0 && (
+          {precioNum > 0 && (!requierePapeles || papelesSeleccionado) && (
             <div className="flex flex-wrap gap-6 mt-4 p-4 bg-gray-50 rounded-xl">
               {entrega > 0 && (
                 <div>

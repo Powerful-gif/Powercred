@@ -59,10 +59,17 @@ export default async function handler(req, res) {
   if (accion === 'rubros_admin') {
     const { data, error } = await supabase
       .from('v_rubros_subrubros')
-      .select('rubro')
+      .select('rubro, sub_rubro')
     if (error) return res.status(502).json({ error: 'Error consultando rubros.' })
     const rubrosUnicos = [...new Set((data || []).map(r => r.rubro))].filter(Boolean).sort()
-    return res.status(200).json(rubrosUnicos)
+    const subRubrosPorRubro = {}
+    for (const r of (data || [])) {
+      if (!r.rubro || !r.sub_rubro) continue
+      if (!subRubrosPorRubro[r.rubro]) subRubrosPorRubro[r.rubro] = []
+      if (!subRubrosPorRubro[r.rubro].includes(r.sub_rubro)) subRubrosPorRubro[r.rubro].push(r.sub_rubro)
+    }
+    for (const r of Object.keys(subRubrosPorRubro)) subRubrosPorRubro[r].sort()
+    return res.status(200).json({ rubros: rubrosUnicos, subRubrosPorRubro })
   }
 
   const { rubro, sub_rubro, marca, nombre } = req.query

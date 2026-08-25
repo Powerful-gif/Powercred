@@ -36,6 +36,10 @@ function grupoTarjetaVacio(nombre) {
   }
 }
 
+function papelesVacio(nombre) {
+  return { id: idDesdeNombre(nombre) + '_' + Math.random().toString(36).slice(2, 6), nombre, costo: 0 }
+}
+
 export default function Configuracion() {
   const { config, saveConfig, esCuotaTarjetaNaranja } = useConfig()
   const [guardando, setGuardando] = useState(false)
@@ -49,11 +53,14 @@ export default function Configuracion() {
   const [tasas, setTasas] = useState(config.tasas)
   const [grupos, setGrupos] = useState(config.gruposTasa)
   const [gruposTarjeta, setGruposTarjeta] = useState(config.gruposTarjeta)
+  const [papeles, setPapeles] = useState(config.papelesOpciones || [])
 
   const [rubrosDuxDisponibles, setRubrosDuxDisponibles] = useState([])
+  const [subRubrosPorRubro, setSubRubrosPorRubro] = useState({})
   const [cargandoRubros, setCargandoRubros] = useState(false)
   const [nuevoGrupoNombre, setNuevoGrupoNombre] = useState('')
   const [nuevoGrupoTarjetaNombre, setNuevoGrupoTarjetaNombre] = useState('')
+  const [nuevoPapelNombre, setNuevoPapelNombre] = useState('')
   const [nuevaCuota, setNuevaCuota] = useState({})
   const [nuevaCuotaNaranja, setNuevaCuotaNaranja] = useState({})
 
@@ -68,7 +75,8 @@ export default function Configuracion() {
     try {
       const r = await fetch('/api/buscar-catalogo?accion=rubros_admin')
       const data = await r.json()
-      setRubrosDuxDisponibles(Array.isArray(data) ? data : [])
+      setRubrosDuxDisponibles(Array.isArray(data?.rubros) ? data.rubros : [])
+      setSubRubrosPorRubro(data?.subRubrosPorRubro || {})
     } catch (e) {
       console.error('Error cargando rubros de Dux', e)
     } finally {
@@ -76,9 +84,14 @@ export default function Configuracion() {
     }
   }
 
+  // Todas las combinaciones "rubro > sub_rubro" disponibles, para el
+  // selector de sub-rubros específicos (ej: Movilidad > Motos).
+  const subRubrosDisponibles = Object.entries(subRubrosPorRubro)
+    .flatMap(([rubro, subs]) => subs.map(sub => ({ rubro, sub, clave: `${rubro}::${sub}` })))
+
   async function guardar() {
     setGuardando(true)
-    await saveConfig({ negocio, pagare, mora, tasas, gruposTasa: grupos, gruposTarjeta })
+    await saveConfig({ negocio, pagare, mora, tasas, gruposTasa: grupos, gruposTarjeta, papelesOpciones: papeles })
     setMensaje('Configuración guardada correctamente')
     setGuardando(false)
     setTimeout(() => setMensaje(''), 3000)
@@ -141,6 +154,23 @@ export default function Configuracion() {
     setGrupos(prev => prev.map(g => g.id === id ? { ...g, [campo]: Number(valor) } : g))
   }
 
+  function toggleRequierePapeles(id, valor) {
+    setGrupos(prev => prev.map(g => g.id === id ? { ...g, requierePapeles: valor } : g))
+  }
+
+  // Un sub-rubro específico ("RUBRO::SUBRUBRO") es independiente del rubro
+  // completo: no se sacan entre sí, para poder tener una excepción puntual
+  // (ej: Motos aparte, mientras el resto de Movilidad sigue en General).
+  function toggleSubRubroGrupo(grupoId, clave) {
+    setGrupos(prev => prev.map(g => {
+      if (g.id === grupoId) {
+        const tiene = g.rubrosDux.includes(clave)
+        return { ...g, rubrosDux: tiene ? g.rubrosDux.filter(r => r !== clave) : [...g.rubrosDux, clave] }
+      }
+      return { ...g, rubrosDux: g.rubrosDux.filter(r => r !== clave) }
+    }))
+  }
+
   function toggleRubroGrupo(grupoId, rubro) {
     setGrupos(prev => prev.map(g => {
       if (g.id === grupoId) {
@@ -187,6 +217,16 @@ export default function Configuracion() {
 
   function renombrarGrupoTarjeta(id, nombre) {
     setGruposTarjeta(prev => prev.map(g => g.id === id ? { ...g, nombre } : g))
+  }
+
+  function toggleSubRubroGrupoTarjeta(grupoId, clave) {
+    setGruposTarjeta(prev => prev.map(g => {
+      if (g.id === grupoId) {
+        const tiene = g.rubrosDux.includes(clave)
+        return { ...g, rubrosDux: tiene ? g.rubrosDux.filter(r => r !== clave) : [...g.rubrosDux, clave] }
+      }
+      return { ...g, rubrosDux: g.rubrosDux.filter(r => r !== clave) }
+    }))
   }
 
   function toggleRubroGrupoTarjeta(grupoId, rubro) {
@@ -238,11 +278,32 @@ export default function Configuracion() {
     }))
   }
 
+  // ── Papeles (costo extra, ej: trámites de Motos) ────────────
+  function agregarPapel() {
+    const nombre = nuevoPapelNombre.trim()
+    if (!nombre) return
+    setPapeles(prev => [...prev, papelesVacio(nombre)])
+    setNuevoPapelNombre('')
+  }
+
+  function eliminarPapel(id) {
+    setPapeles(prev => prev.filter(p => p.id !== id))
+  }
+
+  function renombrarPapel(id, nombre) {
+    setPapeles(prev => prev.map(p => p.id === id ? { ...p, nombre } : p))
+  }
+
+  function actualizarCostoPapel(id, costo) {
+    setPapeles(prev => prev.map(p => p.id === id ? { ...p, costo: Number(costo) } : p))
+  }
+
   const tabs = [
     { key: 'negocio', label: 'Datos del negocio' },
     { key: 'pagare', label: 'Pagaré' },
     { key: 'powercred', label: 'PowerCred' },
     { key: 'tarjeta', label: 'Tarjeta de Crédito' },
+    { key: 'papeles', label: 'Papeles' },
     { key: 'tasas', label: 'Préstamo en efectivo' },
     { key: 'mora', label: 'Interés mora' },
     { key: 'backup', label: 'Backup' },
@@ -374,6 +435,37 @@ export default function Configuracion() {
                   </p>
                 )}
               </div>
+
+              {/* Sub-rubros específicos (excepciones dentro de un rubro) */}
+              <div>
+                <label className="label mb-2">Sub-rubros específicos (excepción dentro de un rubro, ej: Movilidad → Motos)</label>
+                <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2 flex flex-wrap gap-2">
+                  {subRubrosDisponibles.map(({ rubro, sub, clave }) => {
+                    const activo = grupo.rubrosDux.includes(clave)
+                    return (
+                      <button
+                        key={clave}
+                        onClick={() => toggleSubRubroGrupo(grupo.id, clave)}
+                        className={`px-2.5 py-1 rounded-md text-xs border transition-colors ${
+                          activo ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        {rubro} / {sub}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Requiere papeles (ej: Motos) */}
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={!!grupo.requierePapeles}
+                  onChange={e => toggleRequierePapeles(grupo.id, e.target.checked)}
+                />
+                Este grupo requiere elegir "Papeles" antes de mostrar las cuotas (ver pestaña Papeles)
+              </label>
 
               {/* Descuentos por método de pago (Consulta) */}
               <div>
@@ -527,6 +619,27 @@ export default function Configuracion() {
                 )}
               </div>
 
+              {/* Sub-rubros específicos (excepciones dentro de un rubro) */}
+              <div>
+                <label className="label mb-2">Sub-rubros específicos (excepción dentro de un rubro, ej: Movilidad → Motos)</label>
+                <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2 flex flex-wrap gap-2">
+                  {subRubrosDisponibles.map(({ rubro, sub, clave }) => {
+                    const activo = grupo.rubrosDux.includes(clave)
+                    return (
+                      <button
+                        key={clave}
+                        onClick={() => toggleSubRubroGrupoTarjeta(grupo.id, clave)}
+                        className={`px-2.5 py-1 rounded-md text-xs border transition-colors ${
+                          activo ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        {rubro} / {sub}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
               {/* Tasas Tarjeta */}
               <div>
                 <div className="text-sm font-semibold text-gray-700 mb-2">Tasas Tarjeta de Crédito</div>
@@ -595,6 +708,65 @@ export default function Configuracion() {
                 onKeyDown={e => e.key === 'Enter' && agregarGrupoTarjeta()}
               />
               <button onClick={agregarGrupoTarjeta} className="btn-primary px-5">Agregar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Papeles (costo extra, ej: trámites de Motos) */}
+      {tab === 'papeles' && (
+        <div className="space-y-4">
+          <div className="card">
+            <p className="text-sm text-gray-500">
+              Opciones de costo de "papeles" (trámites) que se suman al precio del artículo
+              antes de calcular las cuotas, para los grupos de PowerCred marcados como
+              "requiere elegir Papeles" (pestaña PowerCred).
+            </p>
+          </div>
+
+          <div className="card">
+            <div className="space-y-3">
+              {papeles.length === 0 && (
+                <p className="text-sm text-gray-400">Todavía no cargaste ninguna opción de papeles.</p>
+              )}
+              {papeles.map(p => (
+                <div key={p.id} className="flex items-center gap-3">
+                  <input
+                    type="text"
+                    className="input-field flex-1"
+                    value={p.nombre}
+                    onChange={e => renombrarPapel(p.id, e.target.value)}
+                  />
+                  <div className="flex items-center gap-1">
+                    <span className="text-gray-400 text-sm">$</span>
+                    <input
+                      type="number"
+                      className="input-field w-32 text-center"
+                      value={p.costo}
+                      onChange={e => actualizarCostoPapel(p.id, e.target.value)}
+                      step="100" min="0"
+                    />
+                  </div>
+                  <button onClick={() => eliminarPapel(p.id)} className="text-xs text-red-500 hover:underline">
+                    Eliminar
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card">
+            <label className="label">Agregar opción nueva</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                className="input-field flex-1"
+                placeholder="Ej: Patentamiento CABA"
+                value={nuevoPapelNombre}
+                onChange={e => setNuevoPapelNombre(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && agregarPapel()}
+              />
+              <button onClick={agregarPapel} className="btn-primary px-5">Agregar</button>
             </div>
           </div>
         </div>
