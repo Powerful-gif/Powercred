@@ -280,15 +280,8 @@ export default function PantallaCobranza() {
       {/* Resumen de todos los créditos, cuando hay más de uno */}
       {creditosConCuotas.length > 1 && !loading && (
         <div className="card bg-red-50 border-red-200">
-          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-            <div className="font-bold text-red-800">
-              ⚠ Este cliente tiene {creditosConCuotas.length} créditos activos
-            </div>
-            <div className="text-sm text-red-700">
-              Total a cobrar: <span className="font-bold">
-                {formatMoneda(creditosConCuotas.reduce((sum, c) => sum + c.cuotas.reduce((s, q) => s + q.moraCalculada.total, 0), 0))}
-              </span>
-            </div>
+          <div className="font-bold text-red-800 mb-2">
+            ⚠ Este cliente tiene {creditosConCuotas.length} créditos activos
           </div>
           <div className="flex flex-wrap gap-2">
             {creditosConCuotas.map(credito => (
