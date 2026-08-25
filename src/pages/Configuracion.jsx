@@ -16,6 +16,8 @@ function grupoVacio(nombre) {
     nombre,
     esDefault: false,
     rubrosDux: [],
+    descuentoEfectivo: 0,
+    descuentoTransferencia: 0,
     powercred: {
       mensual: { 3: 0, 6: 0, 9: 0, 12: 0 },
       quincenal: { 4: 0, 6: 0, 8: 0, 10: 0, 12: 0 },
@@ -133,6 +135,10 @@ export default function Configuracion() {
 
   function renombrarGrupo(id, nombre) {
     setGrupos(prev => prev.map(g => g.id === id ? { ...g, nombre } : g))
+  }
+
+  function actualizarDescuentoGrupo(id, campo, valor) {
+    setGrupos(prev => prev.map(g => g.id === id ? { ...g, [campo]: Number(valor) } : g))
   }
 
   function toggleRubroGrupo(grupoId, rubro) {
@@ -367,6 +373,39 @@ export default function Configuracion() {
                     "General" se aplica a cualquier rubro que no esté asignado a otro grupo, no hace falta tildar nada acá.
                   </p>
                 )}
+              </div>
+
+              {/* Descuentos por método de pago (Consulta) */}
+              <div>
+                <div className="text-sm font-semibold text-gray-700 mb-2">Descuentos en Consulta</div>
+                <div className="flex gap-4">
+                  <div>
+                    <label className="label text-xs">Efectivo</label>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        className="input-field w-20 text-center text-sm"
+                        value={grupo.descuentoEfectivo ?? 0}
+                        onChange={e => actualizarDescuentoGrupo(grupo.id, 'descuentoEfectivo', e.target.value)}
+                        step="0.5" min="0"
+                      />
+                      <span className="text-gray-400 text-sm">%</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label text-xs">Transferencia</label>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        className="input-field w-20 text-center text-sm"
+                        value={grupo.descuentoTransferencia ?? 0}
+                        onChange={e => actualizarDescuentoGrupo(grupo.id, 'descuentoTransferencia', e.target.value)}
+                        step="0.5" min="0"
+                      />
+                      <span className="text-gray-400 text-sm">%</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Tasas PowerCred */}

@@ -33,6 +33,8 @@ const DEFAULT_CONFIG = {
       nombre: 'General',
       esDefault: true,
       rubrosDux: [],
+      descuentoEfectivo: 10,
+      descuentoTransferencia: 0,
       powercred: {
         mensual: { 3: 12, 6: 24, 9: 42, 12: 60 },
         quincenal: { 4: 8, 6: 12, 8: 16, 10: 20, 12: 24 },
@@ -44,6 +46,8 @@ const DEFAULT_CONFIG = {
       nombre: 'Colchones y Sillones',
       esDefault: false,
       rubrosDux: ['COLCHONES Y SOMMIERS'],
+      descuentoEfectivo: 20,
+      descuentoTransferencia: 10,
       powercred: {
         mensual: { 3: 0, 6: 0, 9: 18, 12: 24 },
         quincenal: { 4: 0, 6: 0, 8: 0, 10: 0, 12: 0 },

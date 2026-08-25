@@ -144,7 +144,10 @@ export default function Consulta() {
 
   const pct = modoEntrega === 'custom' ? null : parseFloat(modoEntrega)
   const precioNum = parseFloat(precio) || 0
-  const precioEfectivo = precioNum * 0.9
+  const descuentoEfectivo = grupoActual?.descuentoEfectivo ?? 10
+  const descuentoTransferencia = grupoActual?.descuentoTransferencia ?? 0
+  const precioEfectivo = precioNum * (1 - descuentoEfectivo / 100)
+  const precioTransferencia = precioNum * (1 - descuentoTransferencia / 100)
   const entrega = modoEntrega === 'custom'
     ? (parseFloat(pctCustom) || 0)
     : Math.round(precioNum * pct / 100)
@@ -185,7 +188,8 @@ export default function Consulta() {
             </div>
             <div style={{ display: 'flex', gap: '20px', background: '#f5f5f5', padding: '10px 14px', borderRadius: '8px', marginBottom: '18px', fontSize: '13px' }}>
               <span><strong>Precio:</strong> {formatMoneda(precioNum)}</span>
-              <span><strong>Efectivo (10% off):</strong> {formatMoneda(precioEfectivo)}</span>
+              {descuentoEfectivo > 0 && <span><strong>Efectivo ({descuentoEfectivo}% off):</strong> {formatMoneda(precioEfectivo)}</span>}
+              {descuentoTransferencia > 0 && <span><strong>Transferencia ({descuentoTransferencia}% off):</strong> {formatMoneda(precioTransferencia)}</span>}
               {entrega > 0 && <span><strong>Entrega{pct ? ` (${pct}%)` : ''}:</strong> {formatMoneda(entrega)}</span>}
               <span><strong>Financia:</strong> {formatMoneda(aFinanciar)}</span>
             </div>
@@ -420,9 +424,14 @@ export default function Consulta() {
               min="0"
             />
           </div>
-          {precioNum > 0 && (
+          {precioNum > 0 && descuentoEfectivo > 0 && (
             <div className="text-sm text-green-700 mt-1">
-              Precio en efectivo (10% off): <span className="font-semibold">{formatMoneda(precioEfectivo)}</span>
+              Precio en efectivo ({descuentoEfectivo}% off): <span className="font-semibold">{formatMoneda(precioEfectivo)}</span>
+            </div>
+          )}
+          {precioNum > 0 && descuentoTransferencia > 0 && (
+            <div className="text-sm text-blue-700 mt-1">
+              Precio por transferencia ({descuentoTransferencia}% off): <span className="font-semibold">{formatMoneda(precioTransferencia)}</span>
             </div>
           )}
         </div>
