@@ -97,9 +97,9 @@ const DEFAULT_CONFIG = {
       id: 'motos',
       nombre: 'Motos',
       esDefault: false,
-      // Mismas tasas con cualquier tarjeta, incluida Naranja (no hay claves "-naranja").
+      // 3/6/9/12 son iguales con cualquier tarjeta; 14 cuotas es exclusiva de Naranja.
       rubrosDux: ['MOVILIDAD::MOTOS'],
-      tarjeta: { 3: 11, 6: 21, 9: 32, 12: 42 }
+      tarjeta: { 3: 11, 6: 21, 9: 32, 12: 42, '14-naranja': 42 }
     }
   ]
 }
