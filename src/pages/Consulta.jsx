@@ -159,7 +159,7 @@ export default function Consulta() {
     ? (parseFloat(pctCustom) || 0)
     : Math.round(precioBase * pct / 100)
   const aFinanciar = Math.max(0, precioBase - entrega)
-  const hayImporte = aFinanciar > 0 && (!requierePapeles || !!papelesSeleccionado)
+  const hayImporte = aFinanciar > 0
 
   function toggle(peri) {
     setAbiertos(prev => ({ ...prev, [peri]: !prev[peri] }))
@@ -446,36 +446,43 @@ export default function Consulta() {
 
         {precioNum > 0 && requierePapeles && (
           <div>
-            <label className="label mb-2">Papeles</label>
-            {(config.papelesOpciones || []).length === 0 ? (
-              <div className="text-sm text-gray-400">
+            <label className="label mb-2">Papeles (opcional)</label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setPapelesSeleccionado('')}
+                className={`px-4 py-2 rounded-lg border-2 text-sm font-medium text-left transition-colors ${
+                  !papelesSeleccionado
+                    ? 'border-orange-500 bg-orange-50 text-orange-700'
+                    : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                }`}
+              >
+                <div>Sin papeles</div>
+              </button>
+              {(config.papelesOpciones || []).map(op => (
+                <button
+                  key={op.id}
+                  onClick={() => setPapelesSeleccionado(op.id)}
+                  className={`px-4 py-2 rounded-lg border-2 text-sm font-medium text-left transition-colors ${
+                    papelesSeleccionado === op.id
+                      ? 'border-orange-500 bg-orange-50 text-orange-700'
+                      : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                  }`}
+                >
+                  <div>{op.nombre}</div>
+                  <div className="text-xs text-gray-400">{formatMoneda(op.costo)}</div>
+                </button>
+              ))}
+            </div>
+            {(config.papelesOpciones || []).length === 0 && (
+              <div className="text-xs text-gray-400 mt-2">
                 No hay opciones de papeles cargadas todavía (Configuración → Papeles).
               </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {config.papelesOpciones.map(op => (
-                  <button
-                    key={op.id}
-                    onClick={() => setPapelesSeleccionado(op.id)}
-                    className={`px-4 py-2 rounded-lg border-2 text-sm font-medium text-left transition-colors ${
-                      papelesSeleccionado === op.id
-                        ? 'border-orange-500 bg-orange-50 text-orange-700'
-                        : 'border-gray-200 hover:border-gray-300 text-gray-600'
-                    }`}
-                  >
-                    <div>{op.nombre}</div>
-                    <div className="text-xs text-gray-400">{formatMoneda(op.costo)}</div>
-                  </button>
-                ))}
-              </div>
             )}
-            {papelesElegido ? (
+            {papelesElegido && (
               <div className="mt-3 p-3 bg-gray-50 rounded-xl text-sm">
                 <span className="text-gray-500">Precio con papeles ({papelesElegido.nombre}):</span>{' '}
                 <span className="font-bold text-gray-900">{formatMoneda(precioBase)}</span>
               </div>
-            ) : (
-              <div className="text-xs text-gray-400 mt-2">Elegí una opción de papeles para ver las cuotas.</div>
             )}
           </div>
         )}
@@ -516,7 +523,7 @@ export default function Consulta() {
             )}
           </div>
 
-          {precioNum > 0 && (!requierePapeles || papelesSeleccionado) && (
+          {precioNum > 0 && (
             <div className="flex flex-wrap gap-6 mt-4 p-4 bg-gray-50 rounded-xl">
               {entrega > 0 && (
                 <div>
