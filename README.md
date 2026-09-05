@@ -106,6 +106,8 @@ src/
 │   ├── Reportes.jsx       # Módulo de reportes
 │   ├── Autorizacion.jsx   # Pantalla de autorización de acceso
 │   ├── Importar.jsx       # Importación de datos
+│   ├── Solicitar.jsx      # Landing pública PowerCred/PowerCash (sin login)
+│   ├── SolicitudesWeb.jsx # Panel para gestionar las solicitudes recibidas
 │   └── Login.jsx          # Pantalla de inicio de sesión
 ├── App.jsx                # Routing principal
 ├── index.css              # Estilos globales con TailwindCSS
@@ -116,11 +118,35 @@ api/
 ├── bcra-cheques.js        # Consulta de cheques rechazados (BCRA)
 └── bcra-deudas.js         # Consulta de situación crediticia (BCRA)
 supabase/
-├── schema.sql                   # Schema base de datos
-├── migration_catalogo_dux.sql   # Migración: catálogo sincronizado desde Dux
-├── migration_indice_ean.sql     # Migración: índice EAN → SKU
-└── migration_metodo_pago.sql    # Migración: método de pago
+├── schema.sql                       # Schema base de datos
+├── migration_catalogo_dux.sql       # Migración: catálogo sincronizado desde Dux
+├── migration_indice_ean.sql         # Migración: índice EAN → SKU
+├── migration_metodo_pago.sql        # Migración: método de pago
+└── migration_solicitudes_web.sql    # Migración: solicitudes desde la landing pública
 ```
+
+---
+
+## SOLICITUDES WEB — LANDING PÚBLICA POWERCRED / POWERCASH
+
+`/solicitar` es una ruta **pública, sin login**, pensada para linkear desde
+Instagram, WhatsApp o los banners de Tienda Nube. Muestra dos opciones con la
+estética de Powerful:
+
+- **PowerCred** — crédito para comprar en el local (`/solicitar?producto=credito`)
+- **PowerCash** — préstamo en efectivo (`/solicitar?producto=efectivo`)
+
+El visitante completa nombre, apellido, DNI y celular; el formulario inserta
+una fila directo en la tabla `solicitudes_web` de Supabase (ver
+`supabase/migration_solicitudes_web.sql` — hay que correrla una vez en el SQL
+Editor de Supabase). Esa tabla tiene Row Level Security: cualquiera puede
+insertar una solicitud nueva, pero solo un usuario logueado en el sistema
+puede leerlas o modificarlas.
+
+Las solicitudes se gestionan desde **Solicitudes Web** en el menú lateral
+(`src/pages/SolicitudesWeb.jsx`): cambiar el estado (nueva / contactada /
+convertida / descartada) o apretar "Convertir en cliente" para abrir el alta
+de cliente con nombre, apellido, DNI y celular ya precargados.
 
 ---
 

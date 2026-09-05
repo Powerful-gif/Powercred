@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useNavigate, useParams, useLocation, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 
@@ -20,9 +20,12 @@ const EMPTY_FORM = {
 export default function FormCliente() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { isAdmin, userNombre } = useAuth()
   const isEdit = !!id
-  const [form, setForm] = useState(EMPTY_FORM)
+  const prefill = location.state?.prefill
+  const solicitudId = location.state?.solicitudId
+  const [form, setForm] = useState(prefill ? { ...EMPTY_FORM, ...prefill } : EMPTY_FORM)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [codigoGen, setCodigoGen] = useState('')
@@ -103,18 +106,23 @@ export default function FormCliente() {
     }
 
     let error_db
+    let nuevoClienteId
     if (isEdit) {
       const { error: e } = await supabase.from('clientes').update(payload).eq('id', id)
       error_db = e
     } else {
-      const { error: e } = await supabase.from('clientes').insert(payload)
+      const { data: creado, error: e } = await supabase.from('clientes').insert(payload).select('id').single()
       error_db = e
+      nuevoClienteId = creado?.id
     }
 
     setLoading(false)
     if (error_db) {
       setError(error_db.message || 'Error al guardar el cliente')
     } else {
+      if (solicitudId && nuevoClienteId) {
+        await supabase.from('solicitudes_web').update({ estado: 'convertida', cliente_id: nuevoClienteId }).eq('id', solicitudId)
+      }
       navigate('/clientes')
     }
   }

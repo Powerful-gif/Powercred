@@ -15,6 +15,8 @@ import Consulta from './pages/Consulta'
 import Reportes from './pages/Reportes'
 import Configuracion from './pages/Configuracion'
 import Autorizacion from './pages/Autorizacion'
+import Solicitar from './pages/Solicitar'
+import SolicitudesWeb from './pages/SolicitudesWeb'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
@@ -35,6 +37,7 @@ function AppRoutes() {
   )
   return (
     <Routes>
+      <Route path="/solicitar" element={<Solicitar />} />
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
       <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
@@ -48,6 +51,7 @@ function AppRoutes() {
         <Route path="creditos/:id" element={<DetalleCredito />} />
         <Route path="cobros" element={<Cobros />} />
         <Route path="consulta" element={<Consulta />} />
+        <Route path="solicitudes-web" element={<SolicitudesWeb />} />
         <Route path="reportes" element={<Reportes />} />
         <Route path="configuracion" element={<Configuracion />} />
         <Route path="autorizacion" element={<Autorizacion />} />
