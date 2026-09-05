@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { LOCALIDADES_CORDOBA } from '../lib/localidadesCordoba'
@@ -105,6 +105,75 @@ function Acordeon({ items, esEfectivo }) {
   )
 }
 
+function BuscadorLocalidad({ value, onChange, inputClase, esEfectivo }) {
+  const [busqueda, setBusqueda] = useState(value || '')
+  const [abierto, setAbierto] = useState(false)
+  const contenedorRef = useRef(null)
+
+  useEffect(() => {
+    function onClickFuera(e) {
+      if (contenedorRef.current && !contenedorRef.current.contains(e.target)) {
+        setAbierto(false)
+      }
+    }
+    document.addEventListener('mousedown', onClickFuera)
+    return () => document.removeEventListener('mousedown', onClickFuera)
+  }, [])
+
+  const texto = busqueda.trim().toLowerCase()
+  const coincidencias = (texto
+    ? LOCALIDADES_CORDOBA.filter(loc => loc.toLowerCase().includes(texto))
+    : LOCALIDADES_CORDOBA
+  ).slice(0, 40)
+
+  function elegir(loc) {
+    setBusqueda(loc)
+    onChange(loc)
+    setAbierto(false)
+  }
+
+  function handleInput(e) {
+    setBusqueda(e.target.value)
+    if (value) onChange('')
+    setAbierto(true)
+  }
+
+  const listaClase = esEfectivo ? 'bg-emerald-950 border border-white/20' : 'bg-white border border-gray-200'
+  const itemClase = esEfectivo ? 'text-white hover:bg-white/10' : 'text-gray-700 hover:bg-orange-50'
+  const vacioClase = esEfectivo ? 'text-white/50' : 'text-gray-400'
+
+  return (
+    <div className="relative" ref={contenedorRef}>
+      <input
+        className={inputClase}
+        value={busqueda}
+        onChange={handleInput}
+        onFocus={() => setAbierto(true)}
+        placeholder="Escribí tu localidad"
+        autoComplete="off"
+      />
+      {abierto && (
+        <div className={`absolute z-10 mt-1 w-full max-h-56 overflow-y-auto rounded-lg shadow-lg ${listaClase}`}>
+          {coincidencias.length > 0 ? (
+            coincidencias.map(loc => (
+              <button
+                type="button"
+                key={loc}
+                onClick={() => elegir(loc)}
+                className={`w-full text-left px-4 py-2 text-sm ${itemClase}`}
+              >
+                {loc}
+              </button>
+            ))
+          ) : (
+            <div className={`px-4 py-2 text-sm ${vacioClase}`}>No encontramos esa localidad</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function FormularioSolicitud({ producto, onVolver }) {
   const info = PRODUCTOS[producto]
   const esEfectivo = producto === 'efectivo'
@@ -137,7 +206,7 @@ function FormularioSolicitud({ producto, onVolver }) {
       return
     }
     if (!localidad) {
-      setError('Elegí tu localidad.')
+      setError('Elegí tu localidad de la lista que aparece al escribir.')
       return
     }
     if (!acepto) {
@@ -253,12 +322,7 @@ function FormularioSolicitud({ producto, onVolver }) {
             </div>
             <div>
               <label className={labelClase}>Localidad *</label>
-              <select className={inputClase} value={localidad} onChange={e => setLocalidad(e.target.value)}>
-                <option value="">Seleccioná tu localidad</option>
-                {LOCALIDADES_CORDOBA.map(loc => (
-                  <option key={loc} value={loc}>{loc}</option>
-                ))}
-              </select>
+              <BuscadorLocalidad value={localidad} onChange={setLocalidad} inputClase={inputClase} esEfectivo={esEfectivo} />
             </div>
           </div>
 
