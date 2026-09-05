@@ -105,6 +105,10 @@ function Acordeon({ items, esEfectivo }) {
   )
 }
 
+function sinTildes(s) {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+}
+
 function BuscadorLocalidad({ value, onChange, inputClase, esEfectivo }) {
   const [busqueda, setBusqueda] = useState(value || '')
   const [abierto, setAbierto] = useState(false)
@@ -120,9 +124,9 @@ function BuscadorLocalidad({ value, onChange, inputClase, esEfectivo }) {
     return () => document.removeEventListener('mousedown', onClickFuera)
   }, [])
 
-  const texto = busqueda.trim().toLowerCase()
+  const texto = sinTildes(busqueda.trim())
   const coincidencias = (texto
-    ? LOCALIDADES_CORDOBA.filter(loc => loc.toLowerCase().includes(texto))
+    ? LOCALIDADES_CORDOBA.filter(loc => sinTildes(loc).includes(texto))
     : LOCALIDADES_CORDOBA
   ).slice(0, 40)
 
