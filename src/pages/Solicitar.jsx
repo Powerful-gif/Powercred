@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { LOCALIDADES_CORDOBA } from '../lib/localidadesCordoba'
 
 const TIENDA_URL = 'https://powerfulshop.com.ar'
 
@@ -11,6 +12,28 @@ const PRODUCTOS = {
     titulo: 'Crédito para comprar',
     descripcion: 'Financiá tu compra en el local, sin tarjeta y con cuotas fijas.',
     boton: 'Solicitar crédito',
+    faq: [
+      {
+        q: '¿Qué necesito para pedir el crédito?',
+        a: 'Ser mayor de 18 años y tu DNI. Con nombre, apellido, DNI y celular ya podés dejar tu solicitud.',
+      },
+      {
+        q: '¿Necesito tarjeta de crédito?',
+        a: 'No. PowerCred te permite comprar en el local sin usar ninguna tarjeta.',
+      },
+      {
+        q: '¿En cuántas cuotas puedo pagar?',
+        a: 'Podés elegir cuotas mensuales o semanales; el plan disponible depende del artículo y el monto.',
+      },
+      {
+        q: '¿Qué pasa si me atraso con una cuota?',
+        a: 'Se aplica un interés por mora sobre el importe de la cuota atrasada. Si sabés que vas a atrasarte, avisanos antes de la fecha de vencimiento.',
+      },
+      {
+        q: '¿Cuánto tardan en contactarme?',
+        a: 'Te contactamos al celular que nos dejes a la brevedad para confirmar tu solicitud.',
+      },
+    ],
   },
   efectivo: {
     nombre: 'POWERCASH',
@@ -18,11 +41,67 @@ const PRODUCTOS = {
     titulo: 'Efectivo para lo que necesites',
     descripcion: 'Pedí tu préstamo en efectivo de forma simple y rápida.',
     boton: 'Solicitar efectivo',
+    faq: [
+      {
+        q: '¿Para qué puedo usar el efectivo?',
+        a: 'Para lo que necesites: no hay restricciones sobre el uso del dinero.',
+      },
+      {
+        q: '¿Cómo recibo el dinero?',
+        a: 'Una vez que evaluamos tu solicitud, te contactamos para coordinar cómo y dónde recibirlo.',
+      },
+      {
+        q: '¿En cuántas cuotas lo devuelvo?',
+        a: 'Podés elegir cuotas mensuales o semanales, según el monto del préstamo.',
+      },
+      {
+        q: '¿Qué pasa si me atraso con una cuota?',
+        a: 'Se aplica un interés por mora sobre el importe de la cuota atrasada. Si sabés que vas a atrasarte, avisanos antes de la fecha de vencimiento.',
+      },
+      {
+        q: '¿Cuánto tardan en contactarme?',
+        a: 'Te contactamos al celular que nos dejes a la brevedad para confirmar tu solicitud.',
+      },
+    ],
   },
 }
 
 function soloDigitos(v) {
   return v.replace(/\D/g, '')
+}
+
+function Acordeon({ items, esEfectivo }) {
+  const [abierto, setAbierto] = useState(null)
+
+  return (
+    <div className={`rounded-2xl p-6 sm:p-8 mt-6 ${esEfectivo ? 'bg-emerald-950/40 border border-emerald-800' : 'bg-white border-2 border-orange-100'}`}>
+      <h3 className={`text-lg font-extrabold mb-4 ${esEfectivo ? 'text-white' : 'text-gray-900'}`}>Preguntas frecuentes</h3>
+      <div className="space-y-2">
+        {items.map((item, i) => {
+          const abiertoAhora = abierto === i
+          return (
+            <div key={i} className={`rounded-lg overflow-hidden ${esEfectivo ? 'border border-white/10' : 'border border-gray-100'}`}>
+              <button
+                type="button"
+                onClick={() => setAbierto(abiertoAhora ? null : i)}
+                className={`w-full flex items-center justify-between gap-3 text-left px-4 py-3 text-sm font-semibold transition-colors ${
+                  esEfectivo ? 'text-white hover:bg-white/5' : 'text-gray-800 hover:bg-orange-50/60'
+                }`}
+              >
+                {item.q}
+                <span className={`shrink-0 transition-transform ${abiertoAhora ? 'rotate-45' : ''} ${esEfectivo ? 'text-white/70' : 'text-orange-500'}`}>+</span>
+              </button>
+              {abiertoAhora && (
+                <div className={`px-4 pb-3 text-sm ${esEfectivo ? 'text-white/70' : 'text-gray-500'}`}>
+                  {item.a}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 function FormularioSolicitud({ producto, onVolver }) {
@@ -32,6 +111,7 @@ function FormularioSolicitud({ producto, onVolver }) {
   const [apellido, setApellido] = useState('')
   const [dni, setDni] = useState('')
   const [celular, setCelular] = useState('')
+  const [localidad, setLocalidad] = useState('')
   const [acepto, setAcepto] = useState(false)
   const [error, setError] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -55,6 +135,10 @@ function FormularioSolicitud({ producto, onVolver }) {
       setError('Ingresá un celular válido, con código de área.')
       return
     }
+    if (!localidad) {
+      setError('Elegí tu localidad.')
+      return
+    }
     if (!acepto) {
       setError('Para continuar tenés que aceptar el uso de tus datos.')
       return
@@ -67,6 +151,8 @@ function FormularioSolicitud({ producto, onVolver }) {
       apellido: apellido.trim(),
       dni: dniLimpio,
       celular: celularLimpio,
+      provincia: 'Córdoba',
+      localidad,
     })
     setEnviando(false)
 
@@ -84,6 +170,10 @@ function FormularioSolicitud({ producto, onVolver }) {
   const inputClase = esEfectivo
     ? 'w-full rounded-lg px-4 py-3 text-sm bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/60'
     : 'w-full rounded-lg px-4 py-3 text-sm border-2 border-gray-200 focus:outline-none focus:border-orange-400'
+
+  const inputDisabledClase = esEfectivo
+    ? 'w-full rounded-lg px-4 py-3 text-sm bg-white/5 border border-white/10 text-white/60'
+    : 'w-full rounded-lg px-4 py-3 text-sm border-2 border-gray-100 bg-gray-50 text-gray-500'
 
   const labelClase = esEfectivo ? 'block text-sm font-medium text-white/80 mb-1' : 'block text-sm font-medium text-gray-700 mb-1'
 
@@ -112,59 +202,79 @@ function FormularioSolicitud({ producto, onVolver }) {
   }
 
   return (
-    <div className={`rounded-2xl p-6 sm:p-10 ${panelClase}`}>
-      <button
-        onClick={onVolver}
-        className={`text-sm mb-6 inline-flex items-center gap-1 ${esEfectivo ? 'text-white/70 hover:text-white' : 'text-gray-400 hover:text-gray-600'}`}
-      >
-        ← Elegir otra opción
-      </button>
-
-      <h2 className={`text-2xl font-extrabold mb-1 ${esEfectivo ? 'text-white' : 'text-gray-900'}`}>{info.nombre}</h2>
-      <p className={`text-sm mb-6 ${esEfectivo ? 'text-white/70' : 'text-gray-500'}`}>{info.descripcion}</p>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className={labelClase}>Nombre *</label>
-            <input className={inputClase} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Juan" autoFocus />
-          </div>
-          <div>
-            <label className={labelClase}>Apellido *</label>
-            <input className={inputClase} value={apellido} onChange={e => setApellido(e.target.value)} placeholder="Ej: García" />
-          </div>
-        </div>
-
-        <div>
-          <label className={labelClase}>DNI *</label>
-          <input className={inputClase} value={dni} onChange={e => setDni(e.target.value)} placeholder="Ej: 30123456" inputMode="numeric" maxLength={9} />
-        </div>
-
-        <div>
-          <label className={labelClase}>Celular *</label>
-          <input className={inputClase} value={celular} onChange={e => setCelular(e.target.value)} placeholder="Ej: 0351 1234567" inputMode="tel" />
-        </div>
-
-        <label className={`flex items-start gap-2 text-xs pt-1 ${esEfectivo ? 'text-white/70' : 'text-gray-500'}`}>
-          <input type="checkbox" className="mt-0.5" checked={acepto} onChange={e => setAcepto(e.target.checked)} />
-          Acepto que Powerful use estos datos para evaluar y gestionar mi solicitud.
-        </label>
-
-        {error && (
-          <div className={`text-sm rounded-lg px-4 py-3 ${esEfectivo ? 'bg-red-500/20 text-red-100 border border-red-400/30' : 'bg-red-50 border border-red-200 text-red-700'}`}>
-            {error}
-          </div>
-        )}
-
+    <>
+      <div className={`rounded-2xl p-6 sm:p-10 ${panelClase}`}>
         <button
-          type="submit"
-          disabled={enviando}
-          className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white px-8 py-3 rounded-full font-bold text-sm transition-colors disabled:opacity-50"
+          onClick={onVolver}
+          className={`text-sm mb-6 inline-flex items-center gap-1 ${esEfectivo ? 'text-white/70 hover:text-white' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          {enviando ? 'Enviando...' : info.boton}
+          ← Elegir otra opción
         </button>
-      </form>
-    </div>
+
+        <h2 className={`text-2xl font-extrabold mb-1 ${esEfectivo ? 'text-white' : 'text-gray-900'}`}>{info.nombre}</h2>
+        <p className={`text-sm mb-6 ${esEfectivo ? 'text-white/70' : 'text-gray-500'}`}>{info.descripcion}</p>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClase}>Nombre *</label>
+              <input className={inputClase} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Juan" autoFocus />
+            </div>
+            <div>
+              <label className={labelClase}>Apellido *</label>
+              <input className={inputClase} value={apellido} onChange={e => setApellido(e.target.value)} placeholder="Ej: García" />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClase}>DNI *</label>
+            <input className={inputClase} value={dni} onChange={e => setDni(e.target.value)} placeholder="Ej: 30123456" inputMode="numeric" maxLength={9} />
+          </div>
+
+          <div>
+            <label className={labelClase}>Celular *</label>
+            <input className={inputClase} value={celular} onChange={e => setCelular(e.target.value)} placeholder="Ej: 0351 1234567" inputMode="tel" />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClase}>Provincia</label>
+              <input className={inputDisabledClase} value="Córdoba" disabled readOnly />
+            </div>
+            <div>
+              <label className={labelClase}>Localidad *</label>
+              <select className={inputClase} value={localidad} onChange={e => setLocalidad(e.target.value)}>
+                <option value="">Seleccioná tu localidad</option>
+                {LOCALIDADES_CORDOBA.map(loc => (
+                  <option key={loc} value={loc}>{loc}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <label className={`flex items-start gap-2 text-xs pt-1 ${esEfectivo ? 'text-white/70' : 'text-gray-500'}`}>
+            <input type="checkbox" className="mt-0.5" checked={acepto} onChange={e => setAcepto(e.target.checked)} />
+            Acepto que Powerful use estos datos para evaluar y gestionar mi solicitud.
+          </label>
+
+          {error && (
+            <div className={`text-sm rounded-lg px-4 py-3 ${esEfectivo ? 'bg-red-500/20 text-red-100 border border-red-400/30' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={enviando}
+            className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white px-8 py-3 rounded-full font-bold text-sm transition-colors disabled:opacity-50"
+          >
+            {enviando ? 'Enviando...' : info.boton}
+          </button>
+        </form>
+      </div>
+
+      <Acordeon items={info.faq} esEfectivo={esEfectivo} />
+    </>
   )
 }
 

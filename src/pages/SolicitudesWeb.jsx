@@ -44,6 +44,8 @@ export default function SolicitudesWeb() {
           apellido: solicitud.apellido,
           dni: solicitud.dni,
           celular: solicitud.celular,
+          localidad: solicitud.localidad || '',
+          provincia: solicitud.provincia || 'Córdoba',
         },
         solicitudId: solicitud.id,
       },
@@ -95,6 +97,7 @@ export default function SolicitudesWeb() {
                 <th className="pb-2 pr-4 font-medium">Nombre</th>
                 <th className="pb-2 pr-4 font-medium">DNI</th>
                 <th className="pb-2 pr-4 font-medium">Celular</th>
+                <th className="pb-2 pr-4 font-medium">Localidad</th>
                 <th className="pb-2 pr-4 font-medium">Estado</th>
                 <th className="pb-2 font-medium">Acciones</th>
               </tr>
@@ -109,6 +112,7 @@ export default function SolicitudesWeb() {
                   <td className="py-3 pr-4 whitespace-nowrap">{s.nombre} {s.apellido}</td>
                   <td className="py-3 pr-4 whitespace-nowrap">{s.dni}</td>
                   <td className="py-3 pr-4 whitespace-nowrap">{s.celular}</td>
+                  <td className="py-3 pr-4 whitespace-nowrap">{s.localidad || '—'}</td>
                   <td className="py-3 pr-4 whitespace-nowrap">
                     <select
                       value={s.estado}

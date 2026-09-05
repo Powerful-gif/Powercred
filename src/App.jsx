@@ -18,6 +18,11 @@ import Autorizacion from './pages/Autorizacion'
 import Solicitar from './pages/Solicitar'
 import SolicitudesWeb from './pages/SolicitudesWeb'
 
+// Ruta secreta de acceso del staff. No está linkeada desde ningún lado
+// público: a diferencia de "/login", nadie que solo navegue el sitio la va
+// a encontrar. Si alguna vez hay que cambiarla, es este único valor.
+export const RUTA_LOGIN = '/acceso-powerful-2026'
+
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return (
@@ -25,7 +30,10 @@ function PrivateRoute({ children }) {
       <div className="text-white text-sm">Cargando...</div>
     </div>
   )
-  return user ? children : <Navigate to="/login" replace />
+  // Si no hay sesión, nunca mandamos a la pantalla de login: cualquiera que
+  // navegue el sitio sin estar logueado cae en la landing pública, como si
+  // no existiera ningún sistema interno detrás.
+  return user ? children : <Navigate to="/solicitar" replace />
 }
 
 function AppRoutes() {
@@ -38,7 +46,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/solicitar" element={<Solicitar />} />
-      <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
+      <Route path={RUTA_LOGIN} element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
       <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
@@ -56,6 +64,9 @@ function AppRoutes() {
         <Route path="configuracion" element={<Configuracion />} />
         <Route path="autorizacion" element={<Autorizacion />} />
       </Route>
+      {/* Cualquier otra ruta (typos, gente curiosa probando /admin, /panel, etc.)
+          cae en la landing pública, nunca en un error ni en una pista del sistema interno. */}
+      <Route path="*" element={<Navigate to="/solicitar" replace />} />
     </Routes>
   )
 }
