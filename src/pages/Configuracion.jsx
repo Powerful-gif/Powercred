@@ -42,13 +42,25 @@ function papelesVacio(nombre) {
 }
 
 export default function Configuracion() {
-  // No se renderiza el formulario (ni se inicializa su estado local) hasta
-  // que la configuración real terminó de cargar desde Supabase. Si se
-  // inicializara antes, el estado local quedaría "pisado" con los valores
-  // por defecto vacíos, y al tocar "Guardar cambios" se borrarían datos
-  // reales ya guardados (esto pasó con las opciones de Papeles).
-  const { loading } = useConfig()
-  if (loading) {
+  // Cada vez que se entra a esta pantalla se vuelve a pedir la configuración
+  // completa a Supabase (no se confía en lo que haya quedado cargado en el
+  // resto de la app), y el formulario no se monta -ni inicializa su estado
+  // local- hasta que esa carga fresca termina. Si se inicializara antes o
+  // con datos viejos, "Guardar cambios" pisaría datos reales guardados por
+  // otra pestaña/dispositivo con una versión desactualizada (esto ya pasó
+  // dos veces: una vació las opciones de Papeles, otra los links de
+  // Financiación externa).
+  const { refrescarConfig } = useConfig()
+  const [refrescando, setRefrescando] = useState(true)
+
+  useEffect(() => {
+    let activo = true
+    setRefrescando(true)
+    refrescarConfig().finally(() => { if (activo) setRefrescando(false) })
+    return () => { activo = false }
+  }, [])
+
+  if (refrescando) {
     return <div className="max-w-4xl text-gray-400 text-sm py-10 text-center">Cargando configuración...</div>
   }
   return <ConfiguracionForm />

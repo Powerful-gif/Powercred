@@ -232,7 +232,7 @@ export function ConfigProvider({ children }) {
 
   return (
     <ConfigContext.Provider value={{
-      config, loading, saveConfig, getTasa,
+      config, loading, saveConfig, getTasa, refrescarConfig: loadConfig,
       getGrupo, getTasaGrupo, detectarGrupoPorRubroDux,
       getGrupoTarjeta, getTasaTarjetaGrupo, esCuotaTarjetaNaranja, cuotasDeClaveTarjeta, detectarGrupoTarjetaPorRubroDux
     }}>
