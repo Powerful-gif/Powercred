@@ -419,24 +419,6 @@ export default function Consulta() {
           </div>
         )}
 
-        {(grupoActual?.linksExternos || []).length > 0 && (
-          <div className="p-4 bg-blue-50 rounded-xl space-y-2">
-            <div className="text-sm font-semibold text-blue-800">Financiación externa</div>
-            <div className="flex flex-wrap gap-2">
-              {grupoActual.linksExternos.map(link => (
-                <a
-                  key={link.id}
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 rounded-lg bg-white border border-blue-300 text-blue-700 text-sm font-medium hover:bg-blue-100 transition-colors"
-                >
-                  {link.nombre} ↗
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div>
           <label className="label">Precio del artículo</label>
@@ -708,6 +690,25 @@ export default function Consulta() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {(grupoActual?.linksExternos || []).length > 0 && (
+        <div className="p-4 bg-blue-50 rounded-xl space-y-2">
+          <div className="text-sm font-semibold text-blue-800">Financiación externa</div>
+          <div className="flex flex-wrap gap-2">
+            {grupoActual.linksExternos.map(link => (
+              <a
+                key={link.id}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 rounded-lg bg-white border border-blue-300 text-blue-700 text-sm font-medium hover:bg-blue-100 transition-colors"
+              >
+                {link.nombre} ↗
+              </a>
+            ))}
+          </div>
         </div>
       )}
 
