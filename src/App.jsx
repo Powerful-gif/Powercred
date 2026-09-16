@@ -43,7 +43,12 @@ function PrivateRoute({ children }) {
       setAalListo(true)
     })
     return () => { activo = false }
-  }, [user])
+    // Se chequea solo cuando cambia la persona logueada (user.id), no en
+    // cada renovación silenciosa del token (por ejemplo al volver a la
+    // pestaña): eso generaba una recarga de golpe que borraba lo que se
+    // estaba escribiendo en pantallas como Consulta o Nuevo Crédito.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id])
 
   if (loading || !aalListo) return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
