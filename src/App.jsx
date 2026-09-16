@@ -1,8 +1,11 @@
+import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ConfigProvider } from './context/ConfigContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { supabase } from './lib/supabase'
 import Layout from './components/Layout/Layout'
 import Login from './pages/Login'
+import Verificar2FA from './pages/Verificar2FA'
 import Dashboard from './pages/Dashboard'
 import Clientes from './pages/Clientes'
 import FormCliente from './components/Clientes/FormCliente'
@@ -25,7 +28,24 @@ export const RUTA_LOGIN = '/acceso-powerful-2026'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
-  if (loading) return (
+  const [aalListo, setAalListo] = useState(false)
+  const [requiereMfa, setRequiereMfa] = useState(false)
+
+  useEffect(() => {
+    if (!user) { setAalListo(true); return }
+    let activo = true
+    setAalListo(false)
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel().then(({ data, error }) => {
+      if (!activo) return
+      // Si hay error o el nivel actual todavía no es aal2, exigimos el
+      // segundo paso (verificación en dos pasos obligatoria para todos).
+      setRequiereMfa(!error && data ? data.currentLevel !== 'aal2' : true)
+      setAalListo(true)
+    })
+    return () => { activo = false }
+  }, [user])
+
+  if (loading || !aalListo) return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
       <div className="text-white text-sm">Cargando...</div>
     </div>
@@ -33,7 +53,9 @@ function PrivateRoute({ children }) {
   // Si no hay sesión, nunca mandamos a la pantalla de login: cualquiera que
   // navegue el sitio sin estar logueado cae en la landing pública, como si
   // no existiera ningún sistema interno detrás.
-  return user ? children : <Navigate to="/solicitar" replace />
+  if (!user) return <Navigate to="/solicitar" replace />
+  if (requiereMfa) return <Navigate to="/verificar-2fa" replace />
+  return children
 }
 
 function AppRoutes() {
@@ -47,6 +69,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/solicitar" element={<Solicitar />} />
       <Route path={RUTA_LOGIN} element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
+      <Route path="/verificar-2fa" element={user ? <Verificar2FA /> : <Navigate to={RUTA_LOGIN} replace />} />
       <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
