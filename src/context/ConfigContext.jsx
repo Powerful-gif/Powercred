@@ -66,6 +66,14 @@ const DEFAULT_CONFIG = {
       descuentoEfectivo: 0,
       descuentoTransferencia: 0,
       requierePapeles: true,
+      // Financiadoras externas (Credicuotas, Creditech, etc.): botones en
+      // Consulta que abren el link de cada una en una pestaña nueva, para
+      // calificar al cliente ahí. Cualquier grupo puede tener sus propios links.
+      linksExternos: [
+        { id: 'credicuotas', nombre: 'Credicuotas', url: 'https://ventas-comercios.credicuotas.com.ar/login?expired=' },
+        { id: 'creditech', nombre: 'Creditech', url: 'https://loan.creditech.com.ar/login.aspx' },
+        { id: 'ceibo', nombre: 'Ceibo Créditos', url: 'https://manager.ceibocreditos.com.ar/' }
+      ],
       powercred: {
         mensual: { 3: 15, 6: 30, 9: 45, 12: 60 },
         quincenal: { 4: 10, 6: 15, 8: 20, 10: 25, 12: 30 },

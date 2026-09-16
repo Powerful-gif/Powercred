@@ -18,6 +18,7 @@ function grupoVacio(nombre) {
     rubrosDux: [],
     descuentoEfectivo: 0,
     descuentoTransferencia: 0,
+    linksExternos: [],
     powercred: {
       mensual: { 3: 0, 6: 0, 9: 0, 12: 0 },
       quincenal: { 4: 0, 6: 0, 8: 0, 10: 0, 12: 0 },
@@ -63,6 +64,8 @@ export default function Configuracion() {
   const [nuevoPapelNombre, setNuevoPapelNombre] = useState('')
   const [nuevaCuota, setNuevaCuota] = useState({})
   const [nuevaCuotaNaranja, setNuevaCuotaNaranja] = useState({})
+  const [nuevoLinkNombre, setNuevoLinkNombre] = useState({})
+  const [nuevoLinkUrl, setNuevoLinkUrl] = useState({})
 
   useEffect(() => {
     if ((tab === 'powercred' || tab === 'tarjeta') && rubrosDuxDisponibles.length === 0) {
@@ -156,6 +159,34 @@ export default function Configuracion() {
 
   function toggleRequierePapeles(id, valor) {
     setGrupos(prev => prev.map(g => g.id === id ? { ...g, requierePapeles: valor } : g))
+  }
+
+  // ── Links de financiación externa (Credicuotas, Creditech, etc.) ───
+  function agregarLinkExterno(grupoId) {
+    const nombre = (nuevoLinkNombre[grupoId] || '').trim()
+    const url = (nuevoLinkUrl[grupoId] || '').trim()
+    if (!nombre || !url) return
+    const link = { id: idDesdeNombre(nombre) + '_' + Math.random().toString(36).slice(2, 6), nombre, url }
+    setGrupos(prev => prev.map(g => g.id !== grupoId ? g : {
+      ...g,
+      linksExternos: [...(g.linksExternos || []), link]
+    }))
+    setNuevoLinkNombre(prev => ({ ...prev, [grupoId]: '' }))
+    setNuevoLinkUrl(prev => ({ ...prev, [grupoId]: '' }))
+  }
+
+  function eliminarLinkExterno(grupoId, linkId) {
+    setGrupos(prev => prev.map(g => g.id !== grupoId ? g : {
+      ...g,
+      linksExternos: (g.linksExternos || []).filter(l => l.id !== linkId)
+    }))
+  }
+
+  function actualizarLinkExterno(grupoId, linkId, campo, valor) {
+    setGrupos(prev => prev.map(g => g.id !== grupoId ? g : {
+      ...g,
+      linksExternos: (g.linksExternos || []).map(l => l.id === linkId ? { ...l, [campo]: valor } : l)
+    }))
   }
 
   // Un sub-rubro específico ("RUBRO::SUBRUBRO") es independiente del rubro
@@ -466,6 +497,55 @@ export default function Configuracion() {
                 />
                 Este grupo requiere elegir "Papeles" antes de mostrar las cuotas (ver pestaña Papeles)
               </label>
+
+              {/* Financiación externa (Credicuotas, Creditech, etc.) */}
+              <div>
+                <label className="label mb-2">Financiación externa</label>
+                <p className="text-xs text-gray-400 mb-2">
+                  Botones que aparecen en Consulta para este grupo y abren el link en una pestaña nueva.
+                </p>
+                <div className="space-y-2">
+                  {(grupo.linksExternos || []).map(link => (
+                    <div key={link.id} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        className="input-field w-40"
+                        value={link.nombre}
+                        onChange={e => actualizarLinkExterno(grupo.id, link.id, 'nombre', e.target.value)}
+                      />
+                      <input
+                        type="text"
+                        className="input-field flex-1"
+                        value={link.url}
+                        onChange={e => actualizarLinkExterno(grupo.id, link.id, 'url', e.target.value)}
+                      />
+                      <button onClick={() => eliminarLinkExterno(grupo.id, link.id)} className="text-xs text-red-500 hover:underline whitespace-nowrap">
+                        Eliminar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <input
+                    type="text"
+                    className="input-field w-40"
+                    placeholder="Nombre"
+                    value={nuevoLinkNombre[grupo.id] || ''}
+                    onChange={e => setNuevoLinkNombre(prev => ({ ...prev, [grupo.id]: e.target.value }))}
+                  />
+                  <input
+                    type="text"
+                    className="input-field flex-1"
+                    placeholder="https://..."
+                    value={nuevoLinkUrl[grupo.id] || ''}
+                    onChange={e => setNuevoLinkUrl(prev => ({ ...prev, [grupo.id]: e.target.value }))}
+                    onKeyDown={e => e.key === 'Enter' && agregarLinkExterno(grupo.id)}
+                  />
+                  <button onClick={() => agregarLinkExterno(grupo.id)} className="btn-secondary text-xs px-3 py-2 whitespace-nowrap">
+                    + Agregar
+                  </button>
+                </div>
+              </div>
 
               {/* Descuentos por método de pago (Consulta) */}
               <div>
