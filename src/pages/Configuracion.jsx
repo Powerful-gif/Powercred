@@ -42,6 +42,19 @@ function papelesVacio(nombre) {
 }
 
 export default function Configuracion() {
+  // No se renderiza el formulario (ni se inicializa su estado local) hasta
+  // que la configuración real terminó de cargar desde Supabase. Si se
+  // inicializara antes, el estado local quedaría "pisado" con los valores
+  // por defecto vacíos, y al tocar "Guardar cambios" se borrarían datos
+  // reales ya guardados (esto pasó con las opciones de Papeles).
+  const { loading } = useConfig()
+  if (loading) {
+    return <div className="max-w-4xl text-gray-400 text-sm py-10 text-center">Cargando configuración...</div>
+  }
+  return <ConfiguracionForm />
+}
+
+function ConfiguracionForm() {
   const { config, saveConfig, esCuotaTarjetaNaranja } = useConfig()
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState('')
