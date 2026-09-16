@@ -696,6 +696,10 @@ export default function Consulta() {
       {(grupoActual?.linksExternos || []).length > 0 && (
         <div className="p-4 bg-blue-50 rounded-xl space-y-2">
           <div className="text-sm font-semibold text-blue-800">Financiación externa</div>
+          <div>
+            <div className="text-xs text-blue-700">Monto a financiar</div>
+            <div className="font-bold text-blue-900 text-xl">{formatMoneda(aFinanciar * 1.05)}</div>
+          </div>
           <div className="flex flex-wrap gap-2">
             {grupoActual.linksExternos.map(link => (
               <a
