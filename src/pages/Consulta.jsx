@@ -542,6 +542,68 @@ export default function Consulta() {
         </div>
       </div>
 
+      {/* Tarjeta de crédito */}
+      {hayImporte && (
+        <div className="card p-0 overflow-hidden">
+          <button
+            onClick={() => setAbiertos(prev => ({ ...prev, tarjeta: !prev.tarjeta }))}
+            className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+              <span className="font-bold text-gray-800">Tarjeta de Crédito</span>
+              <span className="text-xs text-gray-400 font-normal">solo consulta</span>
+            </div>
+            <svg
+              className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${abiertos.tarjeta ? 'rotate-180' : ''}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {abiertos.tarjeta && (
+            <div className="border-t border-gray-100">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="text-left py-2 px-5 text-gray-500 font-medium">Cuotas</th>
+                    <th className="text-center py-2 px-3 text-gray-500 font-medium">Tasa</th>
+                    <th className="text-center py-2 px-5 text-gray-500 font-medium">Valor por cuota</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(grupoTarjetaActual.tarjeta).sort((a, b) => cuotasDeClaveTarjeta(a[0]) - cuotasDeClaveTarjeta(b[0])).map(([n, tasa]) => {
+                    const { cuota } = calcularCuota(aFinanciar, tasa, cuotasDeClaveTarjeta(n))
+                    return (
+                      <tr key={n} className="border-b border-gray-50 hover:bg-blue-50 transition-colors">
+                        <td className="py-3 px-5 font-bold text-gray-700">{cuotasDeClaveTarjeta(n)} cuotas</td>
+                        <td className="py-3 px-3 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            {tasa === 0
+                              ? <span className="text-green-600 font-semibold text-xs">sin interés</span>
+                              : <span className="text-gray-400 text-xs">{tasa}%</span>
+                            }
+                            {esCuotaTarjetaNaranja(n) && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-orange-50 text-orange-600">
+                                Solo Naranja
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-5 text-center font-bold text-gray-900 text-lg">{formatMoneda(cuota)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* PowerCred */}
       {hayImporte && (
         <div className="card p-0 overflow-hidden">
@@ -625,68 +687,6 @@ export default function Consulta() {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tarjeta de crédito */}
-      {hayImporte && (
-        <div className="card p-0 overflow-hidden">
-          <button
-            onClick={() => setAbiertos(prev => ({ ...prev, tarjeta: !prev.tarjeta }))}
-            className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-              </svg>
-              <span className="font-bold text-gray-800">Tarjeta de Crédito</span>
-              <span className="text-xs text-gray-400 font-normal">solo consulta</span>
-            </div>
-            <svg
-              className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${abiertos.tarjeta ? 'rotate-180' : ''}`}
-              fill="none" stroke="currentColor" viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-
-          {abiertos.tarjeta && (
-            <div className="border-t border-gray-100">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="text-left py-2 px-5 text-gray-500 font-medium">Cuotas</th>
-                    <th className="text-center py-2 px-3 text-gray-500 font-medium">Tasa</th>
-                    <th className="text-center py-2 px-5 text-gray-500 font-medium">Valor por cuota</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(grupoTarjetaActual.tarjeta).sort((a, b) => cuotasDeClaveTarjeta(a[0]) - cuotasDeClaveTarjeta(b[0])).map(([n, tasa]) => {
-                    const { cuota } = calcularCuota(aFinanciar, tasa, cuotasDeClaveTarjeta(n))
-                    return (
-                      <tr key={n} className="border-b border-gray-50 hover:bg-blue-50 transition-colors">
-                        <td className="py-3 px-5 font-bold text-gray-700">{cuotasDeClaveTarjeta(n)} cuotas</td>
-                        <td className="py-3 px-3 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            {tasa === 0
-                              ? <span className="text-green-600 font-semibold text-xs">sin interés</span>
-                              : <span className="text-gray-400 text-xs">{tasa}%</span>
-                            }
-                            {esCuotaTarjetaNaranja(n) && (
-                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-orange-50 text-orange-600">
-                                Solo Naranja
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3 px-5 text-center font-bold text-gray-900 text-lg">{formatMoneda(cuota)}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
             </div>
           )}
         </div>
