@@ -572,15 +572,27 @@ function ConfiguracionForm() {
                   </button>
                 </div>
                 {(grupo.linksExternos || []).length > 0 && (
-                  <div className="flex items-center gap-2 mt-3">
-                    <label className="label text-xs">Recargo sobre el monto a financiar</label>
-                    <input
-                      type="number"
-                      className="input-field w-20"
-                      value={grupo.recargoFinanciacionExterna || 0}
-                      onChange={e => actualizarDescuentoGrupo(grupo.id, 'recargoFinanciacionExterna', e.target.value)}
-                    />
-                    <span className="text-xs text-gray-400">%</span>
+                  <div className="mt-3 space-y-2">
+                    <label className="flex items-center gap-2 text-sm text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={!!grupo.recargoFinanciacionExterna}
+                        onChange={e => actualizarDescuentoGrupo(grupo.id, 'recargoFinanciacionExterna', e.target.checked ? 5 : 0)}
+                      />
+                      Este grupo lleva un % extra sobre el monto a financiar en Financiación externa
+                    </label>
+                    {!!grupo.recargoFinanciacionExterna && (
+                      <div className="flex items-center gap-2 pl-6">
+                        <label className="label text-xs">Recargo</label>
+                        <input
+                          type="number"
+                          className="input-field w-20"
+                          value={grupo.recargoFinanciacionExterna || 0}
+                          onChange={e => actualizarDescuentoGrupo(grupo.id, 'recargoFinanciacionExterna', e.target.value)}
+                        />
+                        <span className="text-xs text-gray-400">%</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
