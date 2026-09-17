@@ -698,7 +698,9 @@ export default function Consulta() {
           <div className="text-sm font-semibold text-blue-800">Financiación externa</div>
           <div>
             <div className="text-xs text-blue-700">Monto a financiar</div>
-            <div className="font-bold text-blue-900 text-xl">{formatMoneda(aFinanciar * 1.05)}</div>
+            <div className="font-bold text-blue-900 text-xl">
+              {formatMoneda(aFinanciar * (1 + (grupoActual?.recargoFinanciacionExterna || 0) / 100))}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             {grupoActual.linksExternos.map(link => (

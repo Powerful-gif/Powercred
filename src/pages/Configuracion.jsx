@@ -19,6 +19,7 @@ function grupoVacio(nombre) {
     descuentoEfectivo: 0,
     descuentoTransferencia: 0,
     linksExternos: [],
+    recargoFinanciacionExterna: 0,
     powercred: {
       mensual: { 3: 0, 6: 0, 9: 0, 12: 0 },
       quincenal: { 4: 0, 6: 0, 8: 0, 10: 0, 12: 0 },
@@ -570,6 +571,18 @@ function ConfiguracionForm() {
                     + Agregar
                   </button>
                 </div>
+                {(grupo.linksExternos || []).length > 0 && (
+                  <div className="flex items-center gap-2 mt-3">
+                    <label className="label text-xs">Recargo sobre el monto a financiar</label>
+                    <input
+                      type="number"
+                      className="input-field w-20"
+                      value={grupo.recargoFinanciacionExterna || 0}
+                      onChange={e => actualizarDescuentoGrupo(grupo.id, 'recargoFinanciacionExterna', e.target.value)}
+                    />
+                    <span className="text-xs text-gray-400">%</span>
+                  </div>
+                )}
               </div>
 
               {/* Descuentos por método de pago (Consulta) */}
