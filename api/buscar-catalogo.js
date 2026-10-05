@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 // (útil para no marear con categorías que no interesa vender por acá).
 // Dejar vacío ([]) para mostrar todos los rubros disponibles.
 const RUBROS_HABILITADOS = [
+  'CALEFACTORES',
   'CLIMATIZACION',
   'COCINAS Y HORNOS',
   'COLCHONES Y SOMMIERS',
