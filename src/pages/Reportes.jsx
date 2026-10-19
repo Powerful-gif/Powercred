@@ -62,7 +62,7 @@ export default function Reportes() {
       if (!id) continue
       if (!porCliente[id]) {
         porCliente[id] = {
-          cliente: c.clientes,
+          cliente: Array.isArray(c.clientes) ? c.clientes[0] : c.clientes,
           cantidadCreditos: 0,
           creditosCancelados: 0,
           tieneMoraOIncobrable: false,
@@ -102,7 +102,7 @@ export default function Reportes() {
 
   function copiarListaMejoresClientes() {
     const texto = datos
-      .map(r => `${r.cliente.apellido}, ${r.cliente.nombre} - ${r.cliente.celular}`)
+      .map(r => `${r.cliente?.apellido}, ${r.cliente?.nombre} - ${r.cliente?.celular}`)
       .join('\n')
     navigator.clipboard.writeText(texto)
     setMensajeCopiado('Lista copiada al portapapeles')
@@ -473,13 +473,13 @@ export default function Reportes() {
                   <tbody>
                     {datos.map((r, i) => (
                       <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-2 px-2 font-medium">{r.cliente.apellido}</td>
-                        <td className="py-2 px-2">{r.cliente.nombre}</td>
-                        <td className="py-2 px-2">{r.cliente.celular}</td>
+                        <td className="py-2 px-2 font-medium">{r.cliente?.apellido}</td>
+                        <td className="py-2 px-2">{r.cliente?.nombre}</td>
+                        <td className="py-2 px-2">{r.cliente?.celular}</td>
                         <td className="py-2 px-2 text-center">{r.cantidadCreditos}</td>
                         <td className="py-2 px-2 text-center">{r.creditosCancelados}</td>
                         <td className="py-2 px-2 text-right font-semibold">{formatMoneda(r.montoTotal)}</td>
-                        <td className="py-2 px-2 text-right text-gray-500">{r.promedioAtraso.toFixed(1)} días</td>
+                        <td className="py-2 px-2 text-right text-gray-500">{(r.promedioAtraso || 0).toFixed(1)} días</td>
                       </tr>
                     ))}
                   </tbody>
