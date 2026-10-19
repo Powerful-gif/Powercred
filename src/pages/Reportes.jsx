@@ -28,6 +28,7 @@ export default function Reportes() {
   const [loading, setLoading] = useState(false)
   const [totales, setTotales] = useState({})
   const [metodoFiltro, setMetodoFiltro] = useState('todos')
+  const [mensajeCopiado, setMensajeCopiado] = useState('')
 
   useEffect(() => {
     cargarReporte()
@@ -42,8 +43,70 @@ export default function Reportes() {
       else if (tab === 'vencimientos') await reporteVencimientos()
       else if (tab === 'cartera') await reporteCartera()
       else if (tab === 'cobrador') await reporteCobrador()
+      else if (tab === 'mejores') await reporteMejoresClientes()
     } catch (e) { console.error(e) }
     setLoading(false)
+  }
+
+  async function reporteMejoresClientes() {
+    const { data: creditos } = await supabase
+      .from('creditos')
+      .select('cliente_id, estado, importe_original, clientes(nombre, apellido, codigo, celular)')
+    const { data: pagos } = await supabase
+      .from('pagos')
+      .select('cliente_id, dias_atraso')
+
+    const porCliente = {}
+    for (const c of (creditos || [])) {
+      const id = c.cliente_id
+      if (!id) continue
+      if (!porCliente[id]) {
+        porCliente[id] = {
+          cliente: c.clientes,
+          cantidadCreditos: 0,
+          creditosCancelados: 0,
+          tieneMoraOIncobrable: false,
+          montoTotal: 0,
+          sumaAtraso: 0,
+          cantidadPagos: 0,
+        }
+      }
+      const r = porCliente[id]
+      r.cantidadCreditos++
+      r.montoTotal += Number(c.importe_original)
+      if (c.estado === 'cancelado') r.creditosCancelados++
+      if (c.estado === 'mora' || c.estado === 'incobrable') r.tieneMoraOIncobrable = true
+    }
+    for (const p of (pagos || [])) {
+      const r = porCliente[p.cliente_id]
+      if (!r) continue
+      r.sumaAtraso += Number(p.dias_atraso || 0)
+      r.cantidadPagos++
+    }
+
+    const lista = Object.values(porCliente)
+      .filter(r => r.cliente && !r.tieneMoraOIncobrable)
+      .map(r => ({
+        ...r,
+        promedioAtraso: r.cantidadPagos ? r.sumaAtraso / r.cantidadPagos : 0,
+      }))
+      .sort((a, b) =>
+        a.promedioAtraso - b.promedioAtraso ||
+        b.creditosCancelados - a.creditosCancelados ||
+        b.montoTotal - a.montoTotal
+      )
+
+    setDatos(lista)
+    setTotales({ cantidad: lista.length })
+  }
+
+  function copiarListaMejoresClientes() {
+    const texto = datos
+      .map(r => `${r.cliente.apellido}, ${r.cliente.nombre} - ${r.cliente.celular}`)
+      .join('\n')
+    navigator.clipboard.writeText(texto)
+    setMensajeCopiado('Lista copiada al portapapeles')
+    setTimeout(() => setMensajeCopiado(''), 3000)
   }
 
   async function reporteCobranzas() {
@@ -139,6 +202,7 @@ export default function Reportes() {
     { key: 'vencimientos', label: 'Próx. vencimientos' },
     { key: 'cartera', label: 'Cartera total' },
     { key: 'cobrador', label: 'Por cobrador' },
+    { key: 'mejores', label: 'Mejores clientes' },
   ]
 
   const conFechas = ['cobranzas', 'creditos', 'cobrador']
@@ -212,6 +276,12 @@ export default function Reportes() {
             </svg>
             Imprimir reporte
           </button>
+          {tab === 'mejores' && datos.length > 0 && (
+            <button onClick={copiarListaMejoresClientes} className="btn-secondary self-center">
+              Copiar nombre, apellido y celular
+            </button>
+          )}
+          {mensajeCopiado && <span className="text-sm text-green-600 self-center">{mensajeCopiado}</span>}
         </div>
       )}
 
@@ -381,6 +451,40 @@ export default function Reportes() {
                   ))}
                 </tbody>
               </table>
+            )}
+
+            {/* Mejores clientes */}
+            {tab === 'mejores' && (
+              <>
+                <div className="mb-3 text-sm text-gray-500">
+                  Clientes sin créditos en mora ni incobrables, ordenados por mejor comportamiento de pago
+                  (menos días de atraso promedio), más créditos ya cancelados y mayor monto financiado histórico.
+                </div>
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b-2 border-gray-200">
+                    <th className="text-left py-2 px-2 text-gray-500 font-medium">Apellido</th>
+                    <th className="text-left py-2 px-2 text-gray-500 font-medium">Nombre</th>
+                    <th className="text-left py-2 px-2 text-gray-500 font-medium">Celular</th>
+                    <th className="text-center py-2 px-2 text-gray-500 font-medium">Créditos</th>
+                    <th className="text-center py-2 px-2 text-gray-500 font-medium">Cancelados</th>
+                    <th className="text-right py-2 px-2 text-gray-500 font-medium">Monto total financiado</th>
+                    <th className="text-right py-2 px-2 text-gray-500 font-medium">Atraso promedio</th>
+                  </tr></thead>
+                  <tbody>
+                    {datos.map((r, i) => (
+                      <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-2 px-2 font-medium">{r.cliente.apellido}</td>
+                        <td className="py-2 px-2">{r.cliente.nombre}</td>
+                        <td className="py-2 px-2">{r.cliente.celular}</td>
+                        <td className="py-2 px-2 text-center">{r.cantidadCreditos}</td>
+                        <td className="py-2 px-2 text-center">{r.creditosCancelados}</td>
+                        <td className="py-2 px-2 text-right font-semibold">{formatMoneda(r.montoTotal)}</td>
+                        <td className="py-2 px-2 text-right text-gray-500">{r.promedioAtraso.toFixed(1)} días</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
             )}
 
             {/* Por cobrador */}
