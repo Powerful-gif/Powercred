@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { formatMoneda, formatFecha, hoyArgentina, diasEntre } from '../lib/formatters'
-import { calcularEstadoCredito } from '../lib/calculos'
+import { calcularEstadoCredito, calcularMora } from '../lib/calculos'
 import { useAuth } from '../context/AuthContext'
+import { useConfig } from '../context/ConfigContext'
 
 function StatCard({ title, value, sub, color, icon, onClick, detail }) {
   return (
@@ -27,6 +28,7 @@ function StatCard({ title, value, sub, color, icon, onClick, detail }) {
 export default function Dashboard() {
   const navigate = useNavigate()
   const { isAdmin, userNombre } = useAuth()
+  const { config } = useConfig()
   const [stats, setStats] = useState({
     totalActivos: 0,
     cobradoHoy: 0,
@@ -83,6 +85,14 @@ export default function Dashboard() {
         if (cartera[estado] !== undefined) cartera[estado]++
       }
 
+      // Total a cobrar de una cuota vencida: saldo pendiente + punitorio por mora,
+      // igual al cálculo que usa Cobros (no solo el importe original de la cuota).
+      const tasaDiaria = config.mora?.tasa_diaria ?? 0.3
+      const totalConMora = (vencidas) => vencidas.reduce((s, q) => {
+        const saldoBase = Number(q.importe_original) - Number(q.importe_pagado || 0)
+        return s + calcularMora(saldoBase, q.fecha_vencimiento, tasaDiaria).total
+      }, 0)
+
       // Créditos atrasados (1-30 días) con máximo días de atraso
       const atrasados = (creditos || [])
         .filter(c => estadosActualizados[c.id] === 'atrasado')
@@ -93,7 +103,7 @@ export default function Dashboard() {
             ? Math.max(...vencidas.map(q => diasEntre(q.fecha_vencimiento, hoy)))
             : 0
           const cuotasVencidas = vencidas.length
-          return { ...c, diasAtraso: maxDias, cuotasVencidas }
+          return { ...c, diasAtraso: maxDias, cuotasVencidas, totalAdeudado: totalConMora(vencidas) }
         })
         .sort((a, b) => b.diasAtraso - a.diasAtraso)
 
@@ -106,7 +116,7 @@ export default function Dashboard() {
           const maxDias = vencidas.length > 0
             ? Math.max(...vencidas.map(q => diasEntre(q.fecha_vencimiento, hoy)))
             : 0
-          return { ...c, diasAtraso: maxDias, cuotasVencidas: vencidas.length }
+          return { ...c, diasAtraso: maxDias, cuotasVencidas: vencidas.length, totalAdeudado: totalConMora(vencidas) }
         })
         .sort((a, b) => b.diasAtraso - a.diasAtraso)
 
@@ -301,12 +311,12 @@ export default function Dashboard() {
                       </span>
                     </td>
                     <td className="py-2 text-center font-semibold text-orange-600">{c.diasAtraso} días</td>
-                    <td className="py-2 text-right font-semibold">{formatMoneda(c.importe_cuota)}</td>
+                    <td className="py-2 text-right font-semibold">{formatMoneda(c.totalAdeudado)}</td>
                     <td className="py-2 text-right">
                       <div className="flex items-center justify-end gap-2">
                         {c.clientes?.celular && (
                           <a
-                            href={`https://wa.me/549${c.clientes.celular.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${c.clientes.nombre}, te recordamos que tenés una cuota vencida de ${formatMoneda(c.importe_cuota)} del crédito ${c.numero_credito} (${c.diasAtraso} días de atraso). Comunicate con nosotros para regularizar. ¡Gracias!`)}`}
+                            href={`https://wa.me/549${c.clientes.celular.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${c.clientes.nombre}, te recordamos que tenés una cuota vencida de ${formatMoneda(c.totalAdeudado)} del crédito ${c.numero_credito} (${c.diasAtraso} días de atraso). Comunicate con nosotros para regularizar. ¡Gracias!`)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-xs font-medium px-2 py-1 rounded-lg transition-colors"
@@ -371,7 +381,7 @@ export default function Dashboard() {
                       </span>
                     </td>
                     <td className="py-2 text-center font-semibold text-red-600">{c.diasAtraso} días</td>
-                    <td className="py-2 text-right font-semibold">{formatMoneda(c.importe_cuota)}</td>
+                    <td className="py-2 text-right font-semibold">{formatMoneda(c.totalAdeudado)}</td>
                     <td className="py-2 text-right">
                       <Link
                         to={`/cobros?cliente=${c.clientes?.id}`}
