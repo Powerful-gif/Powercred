@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { ConfigProvider } from './context/ConfigContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { supabase } from './lib/supabase'
@@ -20,14 +20,19 @@ import Configuracion from './pages/Configuracion'
 import Autorizacion from './pages/Autorizacion'
 import Solicitar from './pages/Solicitar'
 import SolicitudesWeb from './pages/SolicitudesWeb'
+import PrestamosPrivados from './pages/PrestamosPrivados'
+import NuevoPrestamo from './components/PrestamosPrivados/NuevoPrestamo'
+import DetallePrestamo from './components/PrestamosPrivados/DetallePrestamo'
 
 // Ruta secreta de acceso del staff. No está linkeada desde ningún lado
 // público: a diferencia de "/login", nadie que solo navegue el sitio la va
 // a encontrar. Si alguna vez hay que cambiarla, es este único valor.
 export const RUTA_LOGIN = '/acceso-powerful-2026'
+const RUTA_PRESTAMOS = '/prestamos-privados'
 
 function PrivateRoute({ children }) {
-  const { user, loading } = useAuth()
+  const { user, loading, accesoPrivado } = useAuth()
+  const { pathname } = useLocation()
   const [aalListo, setAalListo] = useState(false)
   const [requiereMfa, setRequiereMfa] = useState(false)
 
@@ -50,7 +55,7 @@ function PrivateRoute({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id])
 
-  if (loading || !aalListo) return (
+  if (loading || !aalListo || accesoPrivado === null) return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
       <div className="text-white text-sm">Cargando...</div>
     </div>
@@ -60,6 +65,10 @@ function PrivateRoute({ children }) {
   // no existiera ningún sistema interno detrás.
   if (!user) return <Navigate to="/solicitar" replace />
   if (requiereMfa) return <Navigate to="/verificar-2fa" replace />
+
+  const enPrestamosPrivados = pathname.startsWith(RUTA_PRESTAMOS)
+  if (accesoPrivado && !enPrestamosPrivados) return <Navigate to={RUTA_PRESTAMOS} replace />
+  if (!accesoPrivado && enPrestamosPrivados) return <Navigate to="/dashboard" replace />
   return children
 }
 
@@ -91,6 +100,9 @@ function AppRoutes() {
         <Route path="reportes" element={<Reportes />} />
         <Route path="configuracion" element={<Configuracion />} />
         <Route path="autorizacion" element={<Autorizacion />} />
+        <Route path="prestamos-privados" element={<PrestamosPrivados />} />
+        <Route path="prestamos-privados/nuevo" element={<NuevoPrestamo />} />
+        <Route path="prestamos-privados/:id" element={<DetallePrestamo />} />
       </Route>
       {/* Cualquier otra ruta (typos, gente curiosa probando /admin, /panel, etc.)
           cae en la landing pública, nunca en un error ni en una pista del sistema interno. */}

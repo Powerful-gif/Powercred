@@ -6,6 +6,7 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [acceso, setAcceso] = useState({ userId: null, valor: false })
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -18,6 +19,20 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
+  useEffect(() => {
+    if (!user?.id) return
+    let activo = true
+    supabase
+      .from('pp_acceso')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (activo) setAcceso({ userId: user.id, valor: !!data })
+      })
+    return () => { activo = false }
+  }, [user?.id])
+
   async function signIn(email, password) {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     return error
@@ -29,9 +44,11 @@ export function AuthProvider({ children }) {
 
   const isAdmin = user?.user_metadata?.role === 'admin'
   const userNombre = user?.user_metadata?.nombre || ''
+  // null = todavía no se sabe si este usuario tiene acceso
+  const accesoPrivado = !user ? false : acceso.userId === user.id ? acceso.valor : null
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut, isAdmin, userNombre }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signOut, isAdmin, userNombre, accesoPrivado }}>
       {children}
     </AuthContext.Provider>
   )

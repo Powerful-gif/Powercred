@@ -96,9 +96,18 @@ const navItems = [
   }
 ]
 
+const itemPrestamos = {
+  to: '/prestamos-privados',
+  label: 'Préstamos privados',
+  icon: navItems.find(item => item.to === '/cobros').icon
+}
+
 export default function Sidebar({ open, onClose }) {
   const { config } = useConfig()
-  const { signOut, userNombre, isAdmin } = useAuth()
+  const { signOut, userNombre, isAdmin, accesoPrivado } = useAuth()
+  const items = accesoPrivado
+    ? [itemPrestamos]
+    : navItems.filter(item => isAdmin || !['Reportes', 'Configuración'].includes(item.label))
 
   return (
     <aside className={`sidebar w-60 bg-gray-900 text-white flex flex-col flex-shrink-0 no-print fixed md:relative inset-y-0 left-0 z-30 transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
@@ -116,25 +125,23 @@ export default function Sidebar({ open, onClose }) {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems
-          .filter(item => isAdmin || !['Reportes', 'Configuración'].includes(item.label))
-          .map(item => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={onClose}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-orange-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                }`
-              }
-            >
-              {item.icon}
-              {item.label}
-            </NavLink>
-          ))}
+        {items.map(item => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            onClick={onClose}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-orange-600 text-white'
+                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+              }`
+            }
+          >
+            {item.icon}
+            {item.label}
+          </NavLink>
+        ))}
       </nav>
 
       {/* Footer / Usuario */}
@@ -145,7 +152,9 @@ export default function Sidebar({ open, onClose }) {
           </div>
           <div className="min-w-0">
             <div className="text-white text-xs font-medium truncate">{userNombre || 'Usuario'}</div>
-            <div className="text-gray-500 text-xs">{isAdmin ? 'Administrador' : 'Vendedor'}</div>
+            <div className="text-gray-500 text-xs">
+              {accesoPrivado ? 'Préstamos privados' : isAdmin ? 'Administrador' : 'Vendedor'}
+            </div>
           </div>
         </div>
         <button

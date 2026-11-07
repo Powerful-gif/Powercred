@@ -1,5 +1,6 @@
 import { useLocation, Link } from 'react-router-dom'
 import { formatFecha, hoyArgentina } from '../../lib/formatters'
+import { useAuth } from '../../context/AuthContext'
 
 const PAGE_TITLES = {
   '/dashboard': 'Dashboard',
@@ -11,10 +12,13 @@ const PAGE_TITLES = {
   '/consulta': 'Consulta de Precios',
   '/reportes': 'Reportes',
   '/configuracion': 'Configuración',
+  '/prestamos-privados/nuevo': 'Nuevo Préstamo',
+  '/prestamos-privados': 'Préstamos Privados',
 }
 
 export default function Header({ onMenuClick }) {
   const { pathname } = useLocation()
+  const { accesoPrivado } = useAuth()
 
   const title = Object.entries(PAGE_TITLES).find(([key]) =>
     pathname === key || (key !== '/' && pathname.startsWith(key + '/'))
@@ -37,12 +41,12 @@ export default function Header({ onMenuClick }) {
       </div>
       <div className="flex items-center gap-2 md:gap-4">
         <span className="hidden md:block text-sm text-gray-500">{hoy}</span>
-        <Link to="/creditos/nuevo"
+        <Link to={accesoPrivado ? '/prestamos-privados/nuevo' : '/creditos/nuevo'}
           className="flex items-center gap-2 bg-orange-600 text-white px-3 md:px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-700 transition-colors">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          <span className="hidden sm:inline">Nuevo Crédito</span>
+          <span className="hidden sm:inline">{accesoPrivado ? 'Nuevo Préstamo' : 'Nuevo Crédito'}</span>
           <span className="sm:hidden">Nuevo</span>
         </Link>
       </div>
