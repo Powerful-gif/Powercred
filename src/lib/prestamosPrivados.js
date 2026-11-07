@@ -1,4 +1,5 @@
 import { calcularCuota, calcularEstadoCredito } from './calculos'
+import { diasEntre } from './formatters'
 
 const redondear = n => Math.round(n * 100) / 100
 
@@ -164,6 +165,102 @@ export function inflacionPromedio(serie, meses = 3) {
   const ultimo = serie[serie.length - 1].indice
   const inicial = serie[serie.length - 1 - meses].indice
   return (Math.pow(ultimo / inicial, 1 / meses) - 1) * 100
+}
+
+// La caja empieza con el primer movimiento cargado: los préstamos anteriores no
+// se restan, porque lo cargado ya es plata libre, pero lo que se cobre desde ese
+// momento sí se suma. Se compara cuándo se registró, no la fecha elegida.
+export function resumirCaja(movimientos, prestamos, prestamistaId) {
+  const propios = (movimientos || []).filter(m => m.prestamista_id === prestamistaId)
+  if (propios.length === 0) return null
+
+  const momento = fecha => new Date(fecha).getTime()
+  const inicio = Math.min(...propios.map(m => momento(m.created_at)))
+  const sumar = tipo => propios.filter(m => m.tipo === tipo).reduce((s, m) => s + Number(m.importe), 0)
+  const ahorros = sumar('ahorro')
+  const retiros = sumar('retiro')
+
+  let prestado = 0
+  let cobrado = 0
+  for (const p of prestamos.filter(x => x.prestamista_id === prestamistaId)) {
+    if (momento(p.created_at) >= inicio) prestado += Number(p.capital)
+    for (const pago of (p.pp_pagos || [])) {
+      if (momento(pago.created_at) >= inicio) cobrado += Number(pago.importe) + Number(pago.mora)
+    }
+  }
+  return { ahorros, retiros, prestado, cobrado, disponible: ahorros - retiros - prestado + cobrado }
+}
+
+const MINIMO_CUOTAS_PAGADAS = 3
+const TOLERANCIA_DIAS = 3
+const ATRASO_DESCALIFICA = 30
+
+// El atraso sale de comparar el último cobro de cada cuota con su vencimiento,
+// no de pagos.dias_atraso: los pagos importados guardaron siempre 0.
+export function recomendarClientes(creditos, cuotas, pagos, hoy) {
+  const cuotasPorCredito = {}
+  for (const c of cuotas) (cuotasPorCredito[c.credito_id] ||= []).push(c)
+
+  const ultimoCobro = {}
+  for (const p of pagos) {
+    if (!ultimoCobro[p.cuota_id] || p.fecha_pago > ultimoCobro[p.cuota_id]) ultimoCobro[p.cuota_id] = p.fecha_pago
+  }
+
+  const porCliente = {}
+  for (const credito of creditos) {
+    if (!credito.cliente_id || !credito.clientes) continue
+    const r = (porCliente[credito.cliente_id] ||= {
+      id: credito.cliente_id,
+      cliente: credito.clientes,
+      descartado: false,
+      creditos: 0,
+      activos: 0,
+      cancelados: 0,
+      mayorCancelado: 0,
+      cuotasPagadas: 0,
+      enFecha: 0,
+      sumaAtraso: 0,
+      atrasoMaximo: 0,
+    })
+    const propias = cuotasPorCredito[credito.id] || []
+    const estado = calcularEstadoCredito(propias, credito.estado)
+    r.creditos++
+    if (estado === 'cancelado') {
+      r.cancelados++
+      r.mayorCancelado = Math.max(r.mayorCancelado, Number(credito.importe_original))
+    } else {
+      r.activos++
+    }
+    if (estado !== 'activo' && estado !== 'cancelado') r.descartado = true
+
+    for (const c of propias) {
+      if (c.estado !== 'pagada') {
+        if (c.fecha_vencimiento < hoy) r.descartado = true
+        continue
+      }
+      const fechaCobro = ultimoCobro[c.id]
+      if (!fechaCobro) continue
+      const atraso = Math.max(0, diasEntre(c.fecha_vencimiento, fechaCobro))
+      r.cuotasPagadas++
+      r.sumaAtraso += atraso
+      r.atrasoMaximo = Math.max(r.atrasoMaximo, atraso)
+      if (atraso <= TOLERANCIA_DIAS) r.enFecha++
+    }
+  }
+
+  return Object.values(porCliente)
+    .filter(r => !r.descartado && r.cuotasPagadas >= MINIMO_CUOTAS_PAGADAS && r.atrasoMaximo <= ATRASO_DESCALIFICA)
+    .map(r => ({
+      ...r,
+      porcentajeEnFecha: (r.enFecha / r.cuotasPagadas) * 100,
+      atrasoPromedio: r.sumaAtraso / r.cuotasPagadas,
+    }))
+    .sort((a, b) =>
+      b.porcentajeEnFecha - a.porcentajeEnFecha ||
+      b.cancelados - a.cancelados ||
+      b.cuotasPagadas - a.cuotasPagadas ||
+      b.mayorCancelado - a.mayorCancelado
+    )
 }
 
 const MESES_POR_CUOTA = { mensual: 1, quincenal: 0.5, semanal: 7 / 30.4375 }

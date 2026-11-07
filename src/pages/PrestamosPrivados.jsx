@@ -5,6 +5,8 @@ import { formatMoneda, formatFecha } from '../lib/formatters'
 import { compararAlternativa, numeroPrestamo, resumirCartera, resumirPrestamo } from '../lib/prestamosPrivados'
 import CalendarioCobros from '../components/PrestamosPrivados/CalendarioCobros'
 import SimuladorPrestamo from '../components/PrestamosPrivados/SimuladorPrestamo'
+import CajaPrestamos from '../components/PrestamosPrivados/CajaPrestamos'
+import ClientesRecomendados from '../components/PrestamosPrivados/ClientesRecomendados'
 
 export const ESTADOS_PRESTAMO = {
   activo: { cls: 'badge-activo', label: 'Al día' },
@@ -36,6 +38,8 @@ function colorResultado(valor) {
 const VISTAS = [
   { id: 'panel', nombre: 'Panel' },
   { id: 'calendario', nombre: 'Calendario de cobros' },
+  { id: 'caja', nombre: 'Caja' },
+  { id: 'clientes', nombre: 'A quién prestarle' },
   { id: 'simulador', nombre: 'Simulador' },
 ]
 
@@ -170,7 +174,7 @@ export default function PrestamosPrivados() {
         ))}
       </div>
 
-      {vista !== 'simulador' && (
+      {(vista === 'panel' || vista === 'calendario') && (
         <div className="flex flex-wrap items-center gap-2">
           {[{ id: 'todos', nombre: 'Todos' }, ...prestamistas].map(p => (
             <button
@@ -187,6 +191,8 @@ export default function PrestamosPrivados() {
       )}
 
       {vista === 'calendario' && <CalendarioCobros prestamos={visibles} />}
+      {vista === 'caja' && <CajaPrestamos prestamos={prestamos} prestamistas={prestamistas} />}
+      {vista === 'clientes' && <ClientesRecomendados />}
       {vista === 'simulador' && <SimuladorPrestamo serie={serie} />}
       {vista === 'panel' && <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

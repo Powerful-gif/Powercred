@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { calcularPrimerVencimiento, calcularTEA, generarFechasVencimiento } from '../../lib/calculos'
 import { formatMoneda, hoyArgentina } from '../../lib/formatters'
-import { armarCuotas, interesTotal, mesesDePlazo } from '../../lib/prestamosPrivados'
+import { armarCuotas, interesTotal, mesesDePlazo, resumirCaja } from '../../lib/prestamosPrivados'
 
 const PERSONA_VACIA = { nombre: '', apellido: '', dni: '', celular: '', domicilio: '', localidad: '' }
 
@@ -11,6 +11,8 @@ export default function NuevoPrestamo() {
   const navigate = useNavigate()
   const [prestamistas, setPrestamistas] = useState([])
   const [personas, setPersonas] = useState([])
+  const [movimientosCaja, setMovimientosCaja] = useState([])
+  const [prestamosCaja, setPrestamosCaja] = useState([])
   const [prestamistaId, setPrestamistaId] = useState('')
   const [personaId, setPersonaId] = useState('')
   const [nuevoPrestamista, setNuevoPrestamista] = useState('')
@@ -30,6 +32,11 @@ export default function NuevoPrestamo() {
   useEffect(() => {
     supabase.from('pp_prestamistas').select('*').order('nombre').then(({ data }) => setPrestamistas(data || []))
     supabase.from('pp_personas').select('*').order('apellido').then(({ data }) => setPersonas(data || []))
+    supabase.from('pp_caja_movimientos').select('*').then(({ data }) => setMovimientosCaja(data || []))
+    supabase
+      .from('pp_prestamos')
+      .select('prestamista_id, capital, created_at, pp_pagos(importe, mora, created_at)')
+      .then(({ data }) => setPrestamosCaja(data || []))
   }, [])
 
   useEffect(() => {
@@ -44,6 +51,7 @@ export default function NuevoPrestamo() {
     ? armarCuotas(capitalNum, tasaNum, generarFechasVencimiento(primerVenc, cuotasNum, periodicidad))
     : null
   const tea = plan ? calcularTEA(capitalNum, plan.importeCuota, cuotasNum, periodicidad) : 0
+  const caja = prestamistaId ? resumirCaja(movimientosCaja, prestamosCaja, prestamistaId) : null
 
   async function agregarPrestamista() {
     const nombre = nuevoPrestamista.trim()
@@ -113,6 +121,12 @@ export default function NuevoPrestamo() {
             <option value="">Elegir...</option>
             {prestamistas.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
           </select>
+          {caja && (
+            <div className={`text-sm mt-2 ${capitalNum > caja.disponible ? 'text-red-600' : 'text-green-700'}`}>
+              Disponible para prestar: <strong>{formatMoneda(caja.disponible)}</strong>
+              {capitalNum > caja.disponible && ' — este préstamo supera lo disponible'}
+            </div>
+          )}
           <div className="flex gap-2 mt-2">
             <input
               type="text"
