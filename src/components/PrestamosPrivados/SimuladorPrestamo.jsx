@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { formatMoneda } from '../../lib/formatters'
-import { inflacionPromedio, simularPrestamo } from '../../lib/prestamosPrivados'
+import { inflacionPromedio, interesTotal, mesesDePlazo, simularPrestamo } from '../../lib/prestamosPrivados'
 
 function formatPorciento(valor) {
   return valor.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'
@@ -9,7 +9,7 @@ function formatPorciento(valor) {
 export default function SimuladorPrestamo({ serie }) {
   const [capital, setCapital] = useState('')
   const [cuotas, setCuotas] = useState('')
-  const [tasa, setTasa] = useState('')
+  const [interesMensual, setInteresMensual] = useState('')
   const [periodicidad, setPeriodicidad] = useState('mensual')
   const promedio = inflacionPromedio(serie)
   const [inflacionManual, setInflacionManual] = useState(null)
@@ -17,7 +17,7 @@ export default function SimuladorPrestamo({ serie }) {
   const inflacionTexto = inflacionManual ?? (promedio === null ? '' : promedio.toFixed(1))
   const capitalNum = parseFloat(capital) || 0
   const cuotasNum = parseInt(cuotas) || 0
-  const tasaNum = parseFloat(tasa)
+  const tasaNum = interesTotal(parseFloat(interesMensual), cuotasNum, periodicidad)
   const inflacionNum = parseFloat(inflacionTexto)
   const listo = capitalNum > 0 && cuotasNum > 0 && tasaNum >= 0 && inflacionNum >= 0
   const r = listo
@@ -48,9 +48,9 @@ export default function SimuladorPrestamo({ serie }) {
               value={cuotas} onChange={e => setCuotas(e.target.value)} />
           </div>
           <div>
-            <label className="label">Interés total (%)</label>
-            <input type="number" className="input-field" placeholder="Ej: 48" min="0" step="0.1"
-              value={tasa} onChange={e => setTasa(e.target.value)} />
+            <label className="label">Interés mensual (%)</label>
+            <input type="number" className="input-field" placeholder="Ej: 9" min="0" step="0.1"
+              value={interesMensual} onChange={e => setInteresMensual(e.target.value)} />
           </div>
           <div>
             <label className="label">Inflación mensual estimada (%)</label>
@@ -86,8 +86,12 @@ export default function SimuladorPrestamo({ serie }) {
               <div className="font-bold text-gray-900">{formatPorciento(r.rendimientoReal)}</div>
             </div>
             <div>
-              <div className="text-xs text-gray-500">Interés mínimo para no perder</div>
-              <div className="font-bold text-gray-900">{formatPorciento(r.tasaMinima)}</div>
+              <div className="text-xs text-gray-500">Interés total</div>
+              <div className="font-bold text-gray-900">{formatPorciento(tasaNum)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Interés mensual mínimo para no perder</div>
+              <div className="font-bold text-gray-900">{formatPorciento(r.tasaMinima / mesesDePlazo(cuotasNum, periodicidad))}</div>
             </div>
           </div>
           <p className="text-xs text-gray-400 mt-4">

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { calcularPrimerVencimiento, calcularTEA, generarFechasVencimiento } from '../../lib/calculos'
 import { formatMoneda, hoyArgentina } from '../../lib/formatters'
-import { armarCuotas } from '../../lib/prestamosPrivados'
+import { armarCuotas, interesTotal, mesesDePlazo } from '../../lib/prestamosPrivados'
 
 const PERSONA_VACIA = { nombre: '', apellido: '', dni: '', celular: '', domicilio: '', localidad: '' }
 
@@ -19,8 +19,8 @@ export default function NuevoPrestamo() {
   const [capital, setCapital] = useState('')
   const [periodicidad, setPeriodicidad] = useState('mensual')
   const [cantCuotas, setCantCuotas] = useState('')
-  const [tasa, setTasa] = useState('')
-  const [tasaMora, setTasaMora] = useState('0.3')
+  const [interesMensual, setInteresMensual] = useState('')
+  const [tasaMora, setTasaMora] = useState('0')
   const [fechaInicio, setFechaInicio] = useState(hoyArgentina())
   const [primerVenc, setPrimerVenc] = useState('')
   const [observaciones, setObservaciones] = useState('')
@@ -38,7 +38,7 @@ export default function NuevoPrestamo() {
 
   const capitalNum = parseFloat(capital) || 0
   const cuotasNum = parseInt(cantCuotas) || 0
-  const tasaNum = parseFloat(tasa)
+  const tasaNum = interesTotal(parseFloat(interesMensual), cuotasNum, periodicidad)
   const planCompleto = capitalNum > 0 && cuotasNum > 0 && tasaNum >= 0 && !!primerVenc
   const plan = planCompleto
     ? armarCuotas(capitalNum, tasaNum, generarFechasVencimiento(primerVenc, cuotasNum, periodicidad))
@@ -197,9 +197,9 @@ export default function NuevoPrestamo() {
               value={cantCuotas} onChange={e => setCantCuotas(e.target.value)} />
           </div>
           <div>
-            <label className="label">Interés total (%) *</label>
-            <input type="number" className="input-field" placeholder="Ej: 48" min="0" step="0.1"
-              value={tasa} onChange={e => setTasa(e.target.value)} />
+            <label className="label">Interés mensual (%) *</label>
+            <input type="number" className="input-field" placeholder="Ej: 9" min="0" step="0.1"
+              value={interesMensual} onChange={e => setInteresMensual(e.target.value)} />
           </div>
           <div>
             <label className="label">Punitorio diario (%)</label>
@@ -213,6 +213,12 @@ export default function NuevoPrestamo() {
             <div>
               <div className="text-xs text-gray-500">Importe por cuota</div>
               <div className="font-bold text-2xl text-blue-800">{formatMoneda(plan.importeCuota)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">
+                Interés total ({mesesDePlazo(cuotasNum, periodicidad).toLocaleString('es-AR')} meses)
+              </div>
+              <div className="font-bold text-2xl text-gray-900">{tasaNum.toLocaleString('es-AR')}%</div>
             </div>
             <div>
               <div className="text-xs text-gray-500">Total a cobrar</div>

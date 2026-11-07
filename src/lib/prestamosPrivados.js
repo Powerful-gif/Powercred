@@ -18,6 +18,16 @@ export function armarCuotas(capital, tasa, fechas) {
   }
 }
 
+const CUOTAS_POR_MES = { mensual: 1, quincenal: 2, semanal: 4 }
+
+export function mesesDePlazo(cuotas, periodicidad) {
+  return cuotas / CUOTAS_POR_MES[periodicidad]
+}
+
+export function interesTotal(interesMensual, cuotas, periodicidad) {
+  return redondear(interesMensual * mesesDePlazo(cuotas, periodicidad))
+}
+
 export function numeroPrestamo(numero) {
   return `PRIV-${String(numero).padStart(4, '0')}`
 }
