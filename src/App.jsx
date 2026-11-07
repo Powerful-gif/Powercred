@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { ConfigProvider } from './context/ConfigContext'
+import { ConfigProvider, useConfig } from './context/ConfigContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { supabase } from './lib/supabase'
 import Layout from './components/Layout/Layout'
@@ -32,9 +32,11 @@ const RUTA_PRESTAMOS = '/prestamos-privados'
 
 function PrivateRoute({ children }) {
   const { user, loading, accesoPrivado } = useAuth()
+  const { refrescarConfig } = useConfig()
   const { pathname } = useLocation()
   const [aalListo, setAalListo] = useState(false)
   const [requiereMfa, setRequiereMfa] = useState(false)
+  const [configLista, setConfigLista] = useState(null)
 
   useEffect(() => {
     if (!user) { setAalListo(true); return }
@@ -55,6 +57,18 @@ function PrivateRoute({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id])
 
+  // La configuración se pide de nuevo al terminar el 2FA: antes de eso la base
+  // no la entrega y quedarían las tasas por defecto del código en lugar de las
+  // reales. Si no carga, no se deja operar con tasas equivocadas.
+  useEffect(() => {
+    if (!aalListo || !user || requiereMfa) return
+    let activo = true
+    setConfigLista(null)
+    refrescarConfig().then(ok => { if (activo) setConfigLista(ok) })
+    return () => { activo = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aalListo, requiereMfa, user?.id])
+
   if (loading || !aalListo || accesoPrivado === null) return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
       <div className="text-white text-sm">Cargando...</div>
@@ -65,6 +79,21 @@ function PrivateRoute({ children }) {
   // no existiera ningún sistema interno detrás.
   if (!user) return <Navigate to="/solicitar" replace />
   if (requiereMfa) return <Navigate to="/verificar-2fa" replace />
+
+  if (configLista === null) return (
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="text-white text-sm">Cargando...</div>
+    </div>
+  )
+  if (configLista === false) return (
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl p-8 max-w-sm text-center">
+        <p className="text-gray-800 font-medium">No se pudo cargar la configuración del sistema.</p>
+        <p className="text-sm text-gray-500 mt-2">Revisá la conexión a internet y probá de nuevo.</p>
+        <button onClick={() => window.location.reload()} className="btn-primary mt-5">Reintentar</button>
+      </div>
+    </div>
+  )
 
   const enPrestamosPrivados = pathname.startsWith(RUTA_PRESTAMOS)
   if (accesoPrivado && !enPrestamosPrivados) return <Navigate to={RUTA_PRESTAMOS} replace />

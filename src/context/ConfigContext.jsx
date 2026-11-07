@@ -142,9 +142,12 @@ export function ConfigProvider({ children }) {
           : DEFAULT_CONFIG.gruposTarjeta
         merged.papelesOpciones = data.datos.papelesOpciones || DEFAULT_CONFIG.papelesOpciones
         setConfig(merged)
+        return true
       }
+      return false
     } catch (e) {
       console.warn('Usando configuración por defecto')
+      return false
     } finally {
       setLoading(false)
     }
@@ -154,13 +157,16 @@ export function ConfigProvider({ children }) {
     const merged = { ...config, ...newConfig }
     setConfig(merged)
     try {
-      await supabase.from('configuracion').upsert({
+      const { error } = await supabase.from('configuracion').upsert({
         id: 'global',
         datos: merged,
         updated_at: new Date().toISOString()
       })
+      if (error) console.error('Error guardando configuración', error)
+      return !error
     } catch (e) {
       console.error('Error guardando configuración', e)
+      return false
     }
   }
 

@@ -53,16 +53,24 @@ export default function Configuracion() {
   // Financiación externa).
   const { refrescarConfig } = useConfig()
   const [refrescando, setRefrescando] = useState(true)
+  const [cargaFallida, setCargaFallida] = useState(false)
 
   useEffect(() => {
     let activo = true
     setRefrescando(true)
-    refrescarConfig().finally(() => { if (activo) setRefrescando(false) })
+    refrescarConfig().then(ok => {
+      if (!activo) return
+      setCargaFallida(!ok)
+      setRefrescando(false)
+    })
     return () => { activo = false }
   }, [])
 
   if (refrescando) {
     return <div className="max-w-4xl text-gray-400 text-sm py-10 text-center">Cargando configuración...</div>
+  }
+  if (cargaFallida) {
+    return <div className="max-w-4xl text-red-600 text-sm py-10 text-center">No se pudo cargar la configuración. Recargá la página antes de hacer cambios.</div>
   }
   return <ConfiguracionForm />
 }
@@ -120,8 +128,8 @@ function ConfiguracionForm() {
 
   async function guardar() {
     setGuardando(true)
-    await saveConfig({ negocio, pagare, mora, tasas, gruposTasa: grupos, gruposTarjeta, papelesOpciones: papeles })
-    setMensaje('Configuración guardada correctamente')
+    const guardado = await saveConfig({ negocio, pagare, mora, tasas, gruposTasa: grupos, gruposTarjeta, papelesOpciones: papeles })
+    setMensaje(guardado ? 'Configuración guardada correctamente' : 'No se pudo guardar la configuración. Probá de nuevo.')
     setGuardando(false)
     setTimeout(() => setMensaje(''), 3000)
   }
