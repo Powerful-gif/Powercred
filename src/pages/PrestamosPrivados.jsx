@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { formatMoneda, formatFecha } from '../lib/formatters'
-import { numeroPrestamo, resumirCartera, resumirPrestamo } from '../lib/prestamosPrivados'
+import { compararAlternativa, numeroPrestamo, resumirCartera, resumirPrestamo } from '../lib/prestamosPrivados'
+import CalendarioCobros from '../components/PrestamosPrivados/CalendarioCobros'
+import SimuladorPrestamo from '../components/PrestamosPrivados/SimuladorPrestamo'
 
 export const ESTADOS_PRESTAMO = {
   activo: { cls: 'badge-activo', label: 'Al día' },
@@ -31,6 +33,72 @@ function colorResultado(valor) {
   return valor === null || valor >= 0 ? 'text-green-700' : 'text-red-600'
 }
 
+const VISTAS = [
+  { id: 'panel', nombre: 'Panel' },
+  { id: 'calendario', nombre: 'Calendario de cobros' },
+  { id: 'simulador', nombre: 'Simulador' },
+]
+
+const ALTERNATIVAS = [
+  { clave: 'dolarBlue', nombre: 'Dólar blue' },
+  { clave: 'dolarOficial', nombre: 'Dólar oficial' },
+  { clave: 'plazoFijo', nombre: 'Plazo fijo a 30 días' },
+]
+
+function ComparacionInversiones({ prestamos, datos, error }) {
+  if (prestamos.length === 0) return null
+  return (
+    <div className="card">
+      <h3 className="font-semibold text-gray-800">¿Convino prestar?</h3>
+      {error ? (
+        <p className="text-sm text-red-600 mt-2">No se pudieron obtener las cotizaciones. Probá recargar en un rato.</p>
+      ) : !datos ? (
+        <p className="text-sm text-gray-400 mt-2">Cargando cotizaciones...</p>
+      ) : (
+        <>
+          <div className="overflow-x-auto mt-3">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-gray-200">
+                  <th className="text-left py-2 px-2 text-gray-500 font-medium">Alternativa</th>
+                  <th className="text-right py-2 px-2 text-gray-500 font-medium">Ahí tendrías</th>
+                  <th className="text-right py-2 px-2 text-gray-500 font-medium">Prestando tenés</th>
+                  <th className="text-right py-2 px-2 text-gray-500 font-medium">Diferencia</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ALTERNATIVAS.map(({ clave, nombre }) => {
+                  const r = compararAlternativa(prestamos, datos[clave])
+                  return (
+                    <tr key={clave} className="border-b border-gray-100">
+                      <td className="py-2 px-2 font-medium">{nombre}</td>
+                      {r ? (
+                        <>
+                          <td className="py-2 px-2 text-right">{formatMoneda(r.alternativa)}</td>
+                          <td className="py-2 px-2 text-right">{formatMoneda(r.prestando)}</td>
+                          <td className={`py-2 px-2 text-right font-semibold ${colorResultado(r.diferencia)}`}>
+                            {r.diferencia > 0 ? '+' : ''}{formatMoneda(r.diferencia)}
+                          </td>
+                        </>
+                      ) : (
+                        <td colSpan={3} className="py-2 px-2 text-right text-gray-400">Sin datos por ahora</td>
+                      )}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-gray-400 mt-3">
+            Valores de hoy si el mismo capital hubiera ido a esa opción en las mismas fechas, reinvirtiendo cada cobro.
+            El capital en la calle cuenta por su valor actual. Dólar: promedio de compra y venta. Plazo fijo: tasa del BCRA para depósitos a 30 días, renovando con intereses; cada banco paga distinto.
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function PrestamosPrivados() {
   const [prestamos, setPrestamos] = useState([])
   const [prestamistas, setPrestamistas] = useState([])
@@ -39,6 +107,18 @@ export default function PrestamosPrivados() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [errorInflacion, setErrorInflacion] = useState(false)
+  const [vista, setVista] = useState('panel')
+  const [comparaciones, setComparaciones] = useState(null)
+  const [errorComparaciones, setErrorComparaciones] = useState(false)
+
+  useEffect(() => {
+    if (prestamos.length === 0) return
+    const desde = prestamos.reduce((min, p) => (p.fecha_inicio < min ? p.fecha_inicio : min), prestamos[0].fecha_inicio)
+    fetch(`/api/comparaciones?desde=${desde}`)
+      .then(r => (r.ok ? r.json() : Promise.reject()))
+      .then(setComparaciones)
+      .catch(() => setErrorComparaciones(true))
+  }, [prestamos])
 
   useEffect(() => {
     cargar()
@@ -76,20 +156,39 @@ export default function PrestamosPrivados() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-2">
-        {[{ id: 'todos', nombre: 'Todos' }, ...prestamistas].map(p => (
+      <div className="flex flex-wrap gap-2 border-b border-gray-200">
+        {VISTAS.map(v => (
           <button
-            key={p.id}
-            onClick={() => setFiltro(p.id)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              filtro === p.id ? 'bg-blue-800 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+            key={v.id}
+            onClick={() => setVista(v.id)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              vista === v.id ? 'border-orange-600 text-orange-700' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            {p.nombre}
+            {v.nombre}
           </button>
         ))}
       </div>
 
+      {vista !== 'simulador' && (
+        <div className="flex flex-wrap items-center gap-2">
+          {[{ id: 'todos', nombre: 'Todos' }, ...prestamistas].map(p => (
+            <button
+              key={p.id}
+              onClick={() => setFiltro(p.id)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                filtro === p.id ? 'bg-blue-800 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {p.nombre}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {vista === 'calendario' && <CalendarioCobros prestamos={visibles} />}
+      {vista === 'simulador' && <SimuladorPrestamo serie={serie} />}
+      {vista === 'panel' && <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Dato titulo="Total prestado" valor={formatMoneda(cartera.capitalPrestado)} detalle={`${cartera.cantidad} préstamo(s)`} />
         <Dato titulo="Capital en la calle" valor={formatMoneda(cartera.capitalEnLaCalle)} detalle="Falta que vuelva" color="text-blue-800" />
@@ -151,6 +250,8 @@ export default function PrestamosPrivados() {
           </>
         )}
       </div>
+
+      <ComparacionInversiones prestamos={visibles} datos={comparaciones} error={errorComparaciones} />
 
       {filtro === 'todos' && prestamistas.length > 0 && (
         <div className="card">
@@ -230,6 +331,7 @@ export default function PrestamosPrivados() {
           </div>
         )}
       </div>
+      </>}
     </div>
   )
 }

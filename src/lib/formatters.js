@@ -3,7 +3,7 @@ export function formatMoneda(valor) {
   if (valor === null || valor === undefined || valor === '') return '$0,00'
   const num = parseFloat(valor)
   if (isNaN(num)) return '$0,00'
-  return '$' + num.toLocaleString('es-AR', {
+  return (num < 0 ? '-$' : '$') + Math.abs(num).toLocaleString('es-AR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   })
