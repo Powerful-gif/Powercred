@@ -39,7 +39,8 @@ export function AuthProvider({ children }) {
   }
 
   async function signOut() {
-    await supabase.auth.signOut()
+    // Solo en este dispositivo: la cuenta del negocio se usa en varias compus
+    await supabase.auth.signOut({ scope: 'local' })
   }
 
   const isAdmin = user?.user_metadata?.role === 'admin'

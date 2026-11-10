@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { calcularMora } from '../../lib/calculos'
 import { formatMoneda, formatFecha, hoyArgentina } from '../../lib/formatters'
-import { numeroPrestamo, resumirPrestamo } from '../../lib/prestamosPrivados'
+import { escalarPrestamo, nombresPrestadores, numeroPrestamo, resumirPrestamo } from '../../lib/prestamosPrivados'
 import { ESTADOS_PRESTAMO } from '../../pages/PrestamosPrivados'
 
 export default function DetallePrestamo() {
@@ -23,7 +23,7 @@ export default function DetallePrestamo() {
   async function cargar() {
     const { data } = await supabase
       .from('pp_prestamos')
-      .select('*, pp_personas(*), pp_prestamistas(nombre), pp_cuotas(*), pp_pagos(*)')
+      .select('*, pp_personas(*), pp_participaciones(prestamista_id, monto, pp_prestamistas(nombre)), pp_cuotas(*), pp_pagos(*)')
       .eq('id', id)
       .maybeSingle()
     setPrestamo(data)
@@ -96,6 +96,13 @@ export default function DetallePrestamo() {
   const cuotas = [...prestamo.pp_cuotas].sort((a, b) => a.numero_cuota - b.numero_cuota)
   const pagos = [...prestamo.pp_pagos].sort((a, b) => b.fecha_pago.localeCompare(a.fecha_pago))
   const persona = prestamo.pp_personas
+  const participantes = (prestamo.pp_participaciones || []).map(x => ({
+    id: x.prestamista_id,
+    nombre: x.pp_prestamistas?.nombre,
+    monto: Number(x.monto),
+    parte: Number(x.monto) / Number(prestamo.capital),
+  }))
+  const repartir = importe => participantes.map(x => `${x.nombre} ${formatMoneda(importe * x.parte)}`).join(' · ')
 
   return (
     <div className="max-w-4xl mx-auto space-y-5">
@@ -107,7 +114,7 @@ export default function DetallePrestamo() {
             <div className="font-mono text-sm text-blue-700">{numeroPrestamo(prestamo.numero)}</div>
             <h2 className="text-xl font-bold text-gray-900">{persona?.apellido}, {persona?.nombre}</h2>
             <div className="text-sm text-gray-500">
-              Prestó {prestamo.pp_prestamistas?.nombre} · {formatFecha(prestamo.fecha_inicio)}
+              {participantes.length > 1 ? 'Prestaron' : 'Prestó'} {nombresPrestadores(prestamo)} · {formatFecha(prestamo.fecha_inicio)}
               {persona?.celular ? ` · ${persona.celular}` : ''}
             </div>
           </div>
@@ -134,6 +141,41 @@ export default function DetallePrestamo() {
         </div>
         {prestamo.observaciones && <p className="text-sm text-gray-500 mt-4">{prestamo.observaciones}</p>}
       </div>
+
+      {participantes.length > 1 && (
+        <div className="card">
+          <h3 className="font-semibold text-gray-800 mb-3">Reparto entre los que prestaron</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-gray-200">
+                  <th className="text-left py-2 px-2 text-gray-500 font-medium">Quién</th>
+                  <th className="text-right py-2 px-2 text-gray-500 font-medium">Puso</th>
+                  <th className="text-right py-2 px-2 text-gray-500 font-medium">Parte</th>
+                  <th className="text-right py-2 px-2 text-gray-500 font-medium">Le cobraron</th>
+                  <th className="text-right py-2 px-2 text-gray-500 font-medium">Su ganancia</th>
+                  <th className="text-right py-2 px-2 text-gray-500 font-medium">Le falta volver</th>
+                </tr>
+              </thead>
+              <tbody>
+                {participantes.map(x => {
+                  const r = resumirPrestamo(escalarPrestamo(prestamo, x.parte))
+                  return (
+                    <tr key={x.id} className="border-b border-gray-100">
+                      <td className="py-2 px-2 font-medium">{x.nombre}</td>
+                      <td className="py-2 px-2 text-right">{formatMoneda(x.monto)}</td>
+                      <td className="py-2 px-2 text-right">{(x.parte * 100).toLocaleString('es-AR', { maximumFractionDigits: 1 })}%</td>
+                      <td className="py-2 px-2 text-right">{formatMoneda(r.cobradoCuotas + r.moraCobrada)}</td>
+                      <td className="py-2 px-2 text-right text-green-700">{formatMoneda(r.interesCobrado + r.moraCobrada)}</td>
+                      <td className="py-2 px-2 text-right">{formatMoneda(r.capitalPendiente)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {error && <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</div>}
 
@@ -205,6 +247,11 @@ export default function DetallePrestamo() {
                 </select>
               </div>
             </div>
+            {participantes.length > 1 && (
+              <div className="text-sm text-blue-900">
+                Le corresponde a cada uno: {repartir((parseFloat(cobro.importe) || 0) + (parseFloat(cobro.mora) || 0))}
+              </div>
+            )}
             <div className="flex gap-3">
               <button onClick={confirmarCobro} disabled={guardando} className="btn-primary disabled:opacity-50">
                 {guardando ? 'Guardando...' : 'Confirmar cobro'}
@@ -225,6 +272,7 @@ export default function DetallePrestamo() {
                   <th className="text-left py-2 px-2 text-gray-500 font-medium">Fecha</th>
                   <th className="text-right py-2 px-2 text-gray-500 font-medium">Cuota</th>
                   <th className="text-right py-2 px-2 text-gray-500 font-medium">Punitorio</th>
+                  {participantes.length > 1 && <th className="text-left py-2 px-2 text-gray-500 font-medium">Corresponde</th>}
                   <th className="text-left py-2 px-2 text-gray-500 font-medium">Método</th>
                   <th className="text-right py-2 px-2"></th>
                 </tr>
@@ -235,6 +283,7 @@ export default function DetallePrestamo() {
                     <td className="py-2 px-2">{formatFecha(p.fecha_pago)}</td>
                     <td className="py-2 px-2 text-right">{formatMoneda(p.importe)}</td>
                     <td className="py-2 px-2 text-right">{Number(p.mora) > 0 ? formatMoneda(p.mora) : '-'}</td>
+                    {participantes.length > 1 && <td className="py-2 px-2 text-xs text-gray-600">{repartir(Number(p.importe) + Number(p.mora))}</td>}
                     <td className="py-2 px-2 capitalize">{p.metodo_pago}</td>
                     <td className="py-2 px-2 text-right">
                       <button onClick={() => anularPago(p)} className="text-red-500 hover:underline text-xs">Anular</button>

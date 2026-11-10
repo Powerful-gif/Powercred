@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { formatMoneda, formatFecha } from '../lib/formatters'
-import { compararAlternativa, numeroPrestamo, resumirCartera, resumirPrestamo } from '../lib/prestamosPrivados'
+import { compararAlternativa, nombresPrestadores, numeroPrestamo, prestamosDe, resumirCartera, resumirPrestamo } from '../lib/prestamosPrivados'
 import CalendarioCobros from '../components/PrestamosPrivados/CalendarioCobros'
 import SimuladorPrestamo from '../components/PrestamosPrivados/SimuladorPrestamo'
 import CajaPrestamos from '../components/PrestamosPrivados/CajaPrestamos'
@@ -137,7 +137,7 @@ export default function PrestamosPrivados() {
     const [resPrestamos, resPrestamistas] = await Promise.all([
       supabase
         .from('pp_prestamos')
-        .select('*, pp_personas(nombre, apellido), pp_prestamistas(nombre), pp_cuotas(*), pp_pagos(*)')
+        .select('*, pp_personas(nombre, apellido), pp_participaciones(prestamista_id, monto, pp_prestamistas(nombre)), pp_cuotas(*), pp_pagos(*)')
         .order('numero', { ascending: false }),
       supabase.from('pp_prestamistas').select('*').order('nombre'),
     ])
@@ -153,7 +153,8 @@ export default function PrestamosPrivados() {
   if (cargando) return <div className="text-center py-12 text-gray-400">Cargando...</div>
   if (error) return <div className="card text-center py-12 text-red-600">{error}</div>
 
-  const visibles = filtro === 'todos' ? prestamos : prestamos.filter(p => p.prestamista_id === filtro)
+  // Con una persona elegida, cada préstamo se muestra solo por su parte
+  const visibles = filtro === 'todos' ? prestamos : prestamosDe(prestamos, filtro)
   const cartera = resumirCartera(visibles, serie)
   const ultimoIpc = serie?.[serie.length - 1]?.mes.split('-').reverse().join('/')
   const perdidaInflacion = cartera.resultadoReal === null ? null : cartera.resultadoNominal - cartera.resultadoReal
@@ -275,7 +276,7 @@ export default function PrestamosPrivados() {
               </thead>
               <tbody>
                 {prestamistas.map(persona => {
-                  const r = resumirCartera(prestamos.filter(p => p.prestamista_id === persona.id), serie)
+                  const r = resumirCartera(prestamosDe(prestamos, persona.id), serie)
                   return (
                     <tr key={persona.id} className="border-b border-gray-100">
                       <td className="py-2 px-2 font-medium">{persona.nombre}</td>
@@ -307,7 +308,7 @@ export default function PrestamosPrivados() {
                   <th className="text-left py-2 px-2 text-gray-500 font-medium">Persona</th>
                   <th className="text-left py-2 px-2 text-gray-500 font-medium">Quién prestó</th>
                   <th className="text-left py-2 px-2 text-gray-500 font-medium">Fecha</th>
-                  <th className="text-right py-2 px-2 text-gray-500 font-medium">Capital</th>
+                  <th className="text-right py-2 px-2 text-gray-500 font-medium">{filtro === 'todos' ? 'Capital' : 'Su parte'}</th>
                   <th className="text-center py-2 px-2 text-gray-500 font-medium">Cuotas</th>
                   <th className="text-left py-2 px-2 text-gray-500 font-medium">Estado</th>
                 </tr>
@@ -324,7 +325,7 @@ export default function PrestamosPrivados() {
                         </Link>
                       </td>
                       <td className="py-2 px-2 font-medium">{p.pp_personas?.apellido}, {p.pp_personas?.nombre}</td>
-                      <td className="py-2 px-2">{p.pp_prestamistas?.nombre}</td>
+                      <td className="py-2 px-2">{nombresPrestadores(p)}</td>
                       <td className="py-2 px-2">{formatFecha(p.fecha_inicio)}</td>
                       <td className="py-2 px-2 text-right font-semibold">{formatMoneda(p.capital)}</td>
                       <td className="py-2 px-2 text-center">{pagadas}/{p.cantidad_cuotas}</td>

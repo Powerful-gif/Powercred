@@ -29,6 +29,43 @@ export function interesTotal(interesMensual, cuotas, periodicidad) {
   return redondear(interesMensual * mesesDePlazo(cuotas, periodicidad))
 }
 
+export function parteDe(prestamo, prestamistaId) {
+  const participacion = (prestamo.pp_participaciones || []).find(x => x.prestamista_id === prestamistaId)
+  return participacion ? Number(participacion.monto) / Number(prestamo.capital) : 0
+}
+
+// Copia del préstamo con los importes multiplicados por la parte de un
+// prestador: así todos los cálculos (cartera, caja, calendario, inflación)
+// dan lo que le corresponde a esa persona sin cambiar nada más.
+export function escalarPrestamo(prestamo, factor) {
+  return {
+    ...prestamo,
+    capital: Number(prestamo.capital) * factor,
+    total_con_intereses: Number(prestamo.total_con_intereses) * factor,
+    importe_cuota: Number(prestamo.importe_cuota) * factor,
+    pp_cuotas: (prestamo.pp_cuotas || []).map(c => ({
+      ...c,
+      importe_original: Number(c.importe_original) * factor,
+      importe_pagado: Number(c.importe_pagado) * factor,
+    })),
+    pp_pagos: (prestamo.pp_pagos || []).map(p => ({
+      ...p,
+      importe: Number(p.importe) * factor,
+      mora: Number(p.mora) * factor,
+    })),
+  }
+}
+
+export function prestamosDe(prestamos, prestamistaId) {
+  return prestamos
+    .filter(p => parteDe(p, prestamistaId) > 0)
+    .map(p => escalarPrestamo(p, parteDe(p, prestamistaId)))
+}
+
+export function nombresPrestadores(prestamo) {
+  return (prestamo.pp_participaciones || []).map(x => x.pp_prestamistas?.nombre).filter(Boolean).join(' y ')
+}
+
 export function numeroPrestamo(numero) {
   return `PRIV-${String(numero).padStart(4, '0')}`
 }
@@ -124,7 +161,7 @@ export function cuotasPorCobrar(prestamos) {
         prestamoId: p.id,
         numero: numeroPrestamo(p.numero),
         persona: p.pp_personas,
-        prestamista: p.pp_prestamistas?.nombre,
+        prestamista: nombresPrestadores(p),
         numeroCuota: c.numero_cuota,
         cantidadCuotas: p.cantidad_cuotas,
         fecha: c.fecha_vencimiento,
@@ -182,7 +219,7 @@ export function resumirCaja(movimientos, prestamos, prestamistaId) {
 
   let prestado = 0
   let cobrado = 0
-  for (const p of prestamos.filter(x => x.prestamista_id === prestamistaId)) {
+  for (const p of prestamosDe(prestamos, prestamistaId)) {
     if (momento(p.created_at) >= inicio) prestado += Number(p.capital)
     for (const pago of (p.pp_pagos || [])) {
       if (momento(pago.created_at) >= inicio) cobrado += Number(pago.importe) + Number(pago.mora)
