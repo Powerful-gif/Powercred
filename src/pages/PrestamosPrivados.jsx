@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
-import { formatMoneda, formatFecha } from '../lib/formatters'
-import { compararAlternativa, nombresPrestadores, numeroPrestamo, prestamosDe, resumirCartera, resumirPrestamo } from '../lib/prestamosPrivados'
+import { formatMoneda } from '../lib/formatters'
+import { compararAlternativa, prestamosDe, resumirCartera } from '../lib/prestamosPrivados'
+import { usePrestamosPrivados } from '../components/PrestamosPrivados/usePrestamosPrivados'
+import FiltroPrestadores from '../components/PrestamosPrivados/FiltroPrestadores'
 import CalendarioCobros from '../components/PrestamosPrivados/CalendarioCobros'
 import SimuladorPrestamo from '../components/PrestamosPrivados/SimuladorPrestamo'
 import CajaPrestamos from '../components/PrestamosPrivados/CajaPrestamos'
@@ -104,12 +104,9 @@ function ComparacionInversiones({ prestamos, datos, error }) {
 }
 
 export default function PrestamosPrivados() {
-  const [prestamos, setPrestamos] = useState([])
-  const [prestamistas, setPrestamistas] = useState([])
+  const { prestamos, prestamistas, cargando, error } = usePrestamosPrivados()
   const [serie, setSerie] = useState(null)
   const [filtro, setFiltro] = useState('todos')
-  const [cargando, setCargando] = useState(true)
-  const [error, setError] = useState('')
   const [errorInflacion, setErrorInflacion] = useState(false)
   const [vista, setVista] = useState('panel')
   const [comparaciones, setComparaciones] = useState(null)
@@ -125,30 +122,11 @@ export default function PrestamosPrivados() {
   }, [prestamos])
 
   useEffect(() => {
-    cargar()
     fetch('/api/inflacion')
       .then(r => (r.ok ? r.json() : Promise.reject()))
       .then(data => setSerie(data.serie))
       .catch(() => setErrorInflacion(true))
   }, [])
-
-  async function cargar() {
-    setCargando(true)
-    const [resPrestamos, resPrestamistas] = await Promise.all([
-      supabase
-        .from('pp_prestamos')
-        .select('*, pp_personas(nombre, apellido), pp_participaciones(prestamista_id, monto, pp_prestamistas(nombre)), pp_cuotas(*), pp_pagos(*)')
-        .order('numero', { ascending: false }),
-      supabase.from('pp_prestamistas').select('*').order('nombre'),
-    ])
-    if (resPrestamos.error || resPrestamistas.error) {
-      setError('No se pudieron cargar los préstamos.')
-    } else {
-      setPrestamos(resPrestamos.data)
-      setPrestamistas(resPrestamistas.data)
-    }
-    setCargando(false)
-  }
 
   if (cargando) return <div className="text-center py-12 text-gray-400">Cargando...</div>
   if (error) return <div className="card text-center py-12 text-red-600">{error}</div>
@@ -176,19 +154,7 @@ export default function PrestamosPrivados() {
       </div>
 
       {(vista === 'panel' || vista === 'calendario') && (
-        <div className="flex flex-wrap items-center gap-2">
-          {[{ id: 'todos', nombre: 'Todos' }, ...prestamistas].map(p => (
-            <button
-              key={p.id}
-              onClick={() => setFiltro(p.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filtro === p.id ? 'bg-blue-800 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              {p.nombre}
-            </button>
-          ))}
-        </div>
+        <FiltroPrestadores prestamistas={prestamistas} filtro={filtro} onCambiar={setFiltro} />
       )}
 
       {vista === 'calendario' && <CalendarioCobros prestamos={visibles} />}
@@ -295,49 +261,6 @@ export default function PrestamosPrivados() {
         </div>
       )}
 
-      <div className="card">
-        <h3 className="font-semibold text-gray-800 mb-3">Préstamos</h3>
-        {visibles.length === 0 ? (
-          <p className="text-center py-8 text-gray-400">Todavía no hay préstamos cargados.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b-2 border-gray-200">
-                  <th className="text-left py-2 px-2 text-gray-500 font-medium">N°</th>
-                  <th className="text-left py-2 px-2 text-gray-500 font-medium">Persona</th>
-                  <th className="text-left py-2 px-2 text-gray-500 font-medium">Quién prestó</th>
-                  <th className="text-left py-2 px-2 text-gray-500 font-medium">Fecha</th>
-                  <th className="text-right py-2 px-2 text-gray-500 font-medium">{filtro === 'todos' ? 'Capital' : 'Su parte'}</th>
-                  <th className="text-center py-2 px-2 text-gray-500 font-medium">Cuotas</th>
-                  <th className="text-left py-2 px-2 text-gray-500 font-medium">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibles.map(p => {
-                  const estado = ESTADOS_PRESTAMO[resumirPrestamo(p).estado]
-                  const pagadas = p.pp_cuotas.filter(c => c.estado === 'pagada').length
-                  return (
-                    <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-2 px-2 font-mono text-xs">
-                        <Link to={`/prestamos-privados/${p.id}`} className="text-blue-700 hover:underline">
-                          {numeroPrestamo(p.numero)}
-                        </Link>
-                      </td>
-                      <td className="py-2 px-2 font-medium">{p.pp_personas?.apellido}, {p.pp_personas?.nombre}</td>
-                      <td className="py-2 px-2">{nombresPrestadores(p)}</td>
-                      <td className="py-2 px-2">{formatFecha(p.fecha_inicio)}</td>
-                      <td className="py-2 px-2 text-right font-semibold">{formatMoneda(p.capital)}</td>
-                      <td className="py-2 px-2 text-center">{pagadas}/{p.cantidad_cuotas}</td>
-                      <td className="py-2 px-2"><span className={estado.cls}>{estado.label}</span></td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
       </>}
     </div>
   )

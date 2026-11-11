@@ -2,17 +2,17 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { calcularMora } from '../../lib/calculos'
-import { formatMoneda, formatFecha, hoyArgentina } from '../../lib/formatters'
+import { formatMoneda, formatFecha } from '../../lib/formatters'
 import { escalarPrestamo, nombresPrestadores, numeroPrestamo, resumirPrestamo } from '../../lib/prestamosPrivados'
 import { ESTADOS_PRESTAMO } from '../../pages/PrestamosPrivados'
+import FormularioCobro from './FormularioCobro'
 
 export default function DetallePrestamo() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [prestamo, setPrestamo] = useState(null)
   const [cargando, setCargando] = useState(true)
-  const [cobro, setCobro] = useState(null)
-  const [guardando, setGuardando] = useState(false)
+  const [cuotaACobrar, setCuotaACobrar] = useState(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -30,45 +30,16 @@ export default function DetallePrestamo() {
     setCargando(false)
   }
 
-  function abrirCobro(cuota) {
-    const saldo = Number(cuota.importe_original) - Number(cuota.importe_pagado)
-    const { mora } = calcularMora(saldo, cuota.fecha_vencimiento, Number(prestamo.tasa_mora_diaria))
-    setError('')
-    setCobro({
-      cuota,
-      saldo,
-      importe: saldo.toFixed(2),
-      mora: mora.toFixed(2),
-      fecha: hoyArgentina(),
-      metodo: 'efectivo',
-    })
-  }
-
-  async function confirmarCobro() {
-    const importe = parseFloat(cobro.importe) || 0
-    const mora = parseFloat(cobro.mora) || 0
-    if (importe < 0 || mora < 0 || importe + mora <= 0) return setError('Ingresá un importe válido.')
-    if (importe > cobro.saldo + 0.005) return setError('El importe supera el saldo de la cuota.')
-
-    setGuardando(true)
-    const { error: e } = await supabase.rpc('pp_registrar_pago', {
-      p_cuota_id: cobro.cuota.id,
-      p_importe: importe,
-      p_mora: mora,
-      p_fecha: cobro.fecha,
-      p_metodo: cobro.metodo,
-      p_observaciones: '',
-    })
-    setGuardando(false)
-    if (e) return setError('No se pudo registrar el cobro: ' + e.message)
-    setCobro(null)
-    cargar()
-  }
-
   async function anularPago(pago) {
     if (!window.confirm(`¿Anular el cobro de ${formatMoneda(Number(pago.importe) + Number(pago.mora))}?`)) return
     const { error: e } = await supabase.rpc('pp_anular_pago', { p_pago_id: pago.id })
     if (e) return setError('No se pudo anular el cobro: ' + e.message)
+    cargar()
+  }
+
+  async function cambiarCobroLocal(e) {
+    const { error: err } = await supabase.from('pp_prestamos').update({ cobrable_en_local: e.target.checked }).eq('id', id)
+    if (err) return setError('No se pudo cambiar el cobro en el local.')
     cargar()
   }
 
@@ -85,7 +56,7 @@ export default function DetallePrestamo() {
     if (!window.confirm('¿Eliminar este préstamo con todas sus cuotas y cobros? No se puede deshacer.')) return
     const { error: e } = await supabase.from('pp_prestamos').delete().eq('id', id)
     if (e) return setError('No se pudo eliminar el préstamo.')
-    navigate('/prestamos-privados')
+    navigate('/prestamos-privados/lista')
   }
 
   if (cargando) return <div className="text-center py-12 text-gray-400">Cargando...</div>
@@ -106,7 +77,7 @@ export default function DetallePrestamo() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-5">
-      <Link to="/prestamos-privados" className="text-sm text-gray-500 hover:text-gray-700">← Volver a préstamos</Link>
+      <Link to="/prestamos-privados/lista" className="text-sm text-gray-500 hover:text-gray-700">← Volver a préstamos</Link>
 
       <div className="card">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -209,7 +180,7 @@ export default function DetallePrestamo() {
                       {pagada ? (
                         <span className="text-green-600 text-xs font-medium">Pagada</span>
                       ) : (
-                        <button onClick={() => abrirCobro(c)} className="text-blue-600 hover:underline text-xs font-medium">Cobrar</button>
+                        <button onClick={() => setCuotaACobrar(c)} className="text-blue-600 hover:underline text-xs font-medium">Cobrar</button>
                       )}
                     </td>
                   </tr>
@@ -219,46 +190,14 @@ export default function DetallePrestamo() {
           </table>
         </div>
 
-        {cobro && (
-          <div className="mt-4 border-2 border-blue-200 bg-blue-50 rounded-xl p-4 space-y-3">
-            <div className="font-semibold text-blue-900">Cobrar cuota {cobro.cuota.numero_cuota}</div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div>
-                <label className="label text-xs">Importe de la cuota</label>
-                <input type="number" className="input-field" min="0" step="0.01" value={cobro.importe}
-                  onChange={e => setCobro(prev => ({ ...prev, importe: e.target.value }))} />
-              </div>
-              <div>
-                <label className="label text-xs">Punitorio</label>
-                <input type="number" className="input-field" min="0" step="0.01" value={cobro.mora}
-                  onChange={e => setCobro(prev => ({ ...prev, mora: e.target.value }))} />
-              </div>
-              <div>
-                <label className="label text-xs">Fecha</label>
-                <input type="date" className="input-field" value={cobro.fecha}
-                  onChange={e => setCobro(prev => ({ ...prev, fecha: e.target.value }))} />
-              </div>
-              <div>
-                <label className="label text-xs">Método</label>
-                <select className="input-field" value={cobro.metodo}
-                  onChange={e => setCobro(prev => ({ ...prev, metodo: e.target.value }))}>
-                  <option value="efectivo">Efectivo</option>
-                  <option value="transferencia">Transferencia</option>
-                </select>
-              </div>
-            </div>
-            {participantes.length > 1 && (
-              <div className="text-sm text-blue-900">
-                Le corresponde a cada uno: {repartir((parseFloat(cobro.importe) || 0) + (parseFloat(cobro.mora) || 0))}
-              </div>
-            )}
-            <div className="flex gap-3">
-              <button onClick={confirmarCobro} disabled={guardando} className="btn-primary disabled:opacity-50">
-                {guardando ? 'Guardando...' : 'Confirmar cobro'}
-              </button>
-              <button onClick={() => setCobro(null)} className="btn-secondary">Cancelar</button>
-            </div>
-          </div>
+        {cuotaACobrar && (
+          <FormularioCobro
+            key={cuotaACobrar.id}
+            prestamo={prestamo}
+            cuota={cuotaACobrar}
+            onCobrado={() => { setCuotaACobrar(null); cargar() }}
+            onCancelar={() => setCuotaACobrar(null)}
+          />
         )}
       </div>
 
@@ -284,7 +223,10 @@ export default function DetallePrestamo() {
                     <td className="py-2 px-2 text-right">{formatMoneda(p.importe)}</td>
                     <td className="py-2 px-2 text-right">{Number(p.mora) > 0 ? formatMoneda(p.mora) : '-'}</td>
                     {participantes.length > 1 && <td className="py-2 px-2 text-xs text-gray-600">{repartir(Number(p.importe) + Number(p.mora))}</td>}
-                    <td className="py-2 px-2 capitalize">{p.metodo_pago}</td>
+                    <td className="py-2 px-2 capitalize">
+                      {p.metodo_pago}
+                      {p.cobrado_en_local && <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-orange-50 text-orange-600">En el local</span>}
+                    </td>
                     <td className="py-2 px-2 text-right">
                       <button onClick={() => anularPago(p)} className="text-red-500 hover:underline text-xs">Anular</button>
                     </td>
@@ -297,6 +239,10 @@ export default function DetallePrestamo() {
       )}
 
       <div className="flex flex-wrap gap-4 text-sm">
+        <label className="flex items-center gap-2 text-gray-600">
+          <input type="checkbox" checked={!!prestamo.cobrable_en_local} onChange={cambiarCobroLocal} />
+          Se puede cobrar en el local
+        </label>
         <button onClick={cambiarIncobrable} className="text-gray-500 hover:underline">
           {prestamo.estado === 'incobrable' ? 'Volver a activar' : 'Marcar como incobrable'}
         </button>

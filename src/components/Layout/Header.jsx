@@ -13,14 +13,17 @@ const PAGE_TITLES = {
   '/reportes': 'Reportes',
   '/configuracion': 'Configuración',
   '/prestamos-privados/nuevo': 'Nuevo Préstamo',
-  '/prestamos-privados': 'Préstamos Privados',
+  '/prestamos-privados/lista': 'Préstamos',
+  '/prestamos-privados/cobros': 'Cobros',
+  '/prestamos-privados': 'Dashboard',
 }
 
 export default function Header({ onMenuClick }) {
   const { pathname } = useLocation()
   const { accesoPrivado } = useAuth()
 
-  const title = Object.entries(PAGE_TITLES).find(([key]) =>
+  const esDetallePrestamo = /^\/prestamos-privados\/[0-9a-f-]{36}$/.test(pathname)
+  const title = esDetallePrestamo ? 'Préstamo' : Object.entries(PAGE_TITLES).find(([key]) =>
     pathname === key || (key !== '/' && pathname.startsWith(key + '/'))
   )?.[1] ?? 'POWERCRED'
 

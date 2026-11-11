@@ -96,17 +96,18 @@ const navItems = [
   }
 ]
 
-const itemPrestamos = {
-  to: '/prestamos-privados',
-  label: 'Préstamos privados',
-  icon: navItems.find(item => item.to === '/cobros').icon
-}
+const icono = ruta => navItems.find(item => item.to === ruta).icon
+const itemsPrivados = [
+  { to: '/prestamos-privados', label: 'Dashboard', icon: icono('/dashboard'), end: true },
+  { to: '/prestamos-privados/lista', label: 'Préstamos', icon: icono('/creditos') },
+  { to: '/prestamos-privados/cobros', label: 'Cobros', icon: icono('/cobros') },
+]
 
 export default function Sidebar({ open, onClose }) {
   const { config } = useConfig()
   const { signOut, userNombre, isAdmin, accesoPrivado } = useAuth()
   const items = accesoPrivado
-    ? [itemPrestamos]
+    ? itemsPrivados
     : navItems.filter(item => isAdmin || !['Reportes', 'Configuración'].includes(item.label))
 
   return (
@@ -129,6 +130,7 @@ export default function Sidebar({ open, onClose }) {
           <NavLink
             key={item.to}
             to={item.to}
+            end={item.end}
             onClick={onClose}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${

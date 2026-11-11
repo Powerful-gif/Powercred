@@ -26,6 +26,7 @@ export default function NuevoPrestamo() {
   const [fechaInicio, setFechaInicio] = useState(hoyArgentina())
   const [primerVenc, setPrimerVenc] = useState('')
   const [observaciones, setObservaciones] = useState('')
+  const [cobrableLocal, setCobrableLocal] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
 
@@ -119,11 +120,15 @@ export default function NuevoPrestamo() {
       },
       p_cuotas: plan.cuotas,
     })
-    setGuardando(false)
     if (e) {
+      setGuardando(false)
       setError('No se pudo guardar el préstamo: ' + e.message)
       return
     }
+    if (cobrableLocal) {
+      await supabase.from('pp_prestamos').update({ cobrable_en_local: true }).eq('id', id)
+    }
+    setGuardando(false)
     navigate(`/prestamos-privados/${id}`)
   }
 
@@ -315,13 +320,21 @@ export default function NuevoPrestamo() {
             value={observaciones} onChange={e => setObservaciones(e.target.value)} />
         </div>
 
+        <label className="flex items-start gap-2 text-sm text-gray-600">
+          <input type="checkbox" className="mt-0.5" checked={cobrableLocal} onChange={e => setCobrableLocal(e.target.checked)} />
+          <span>
+            Se puede cobrar en el local
+            <span className="block text-xs text-gray-400">Las chicas de la caja lo van a ver en Cobros del sistema común, sin saber quién prestó.</span>
+          </span>
+        </label>
+
         {error && <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</div>}
 
         <div className="flex gap-3">
           <button onClick={guardar} disabled={guardando} className="btn-primary flex-1 disabled:opacity-50">
             {guardando ? 'Guardando...' : 'Crear préstamo'}
           </button>
-          <button onClick={() => navigate('/prestamos-privados')} className="btn-secondary">Cancelar</button>
+          <button onClick={() => navigate('/prestamos-privados/lista')} className="btn-secondary">Cancelar</button>
         </div>
       </div>
     </div>

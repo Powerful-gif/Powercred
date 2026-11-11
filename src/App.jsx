@@ -23,6 +23,8 @@ import SolicitudesWeb from './pages/SolicitudesWeb'
 import PrestamosPrivados from './pages/PrestamosPrivados'
 import NuevoPrestamo from './components/PrestamosPrivados/NuevoPrestamo'
 import DetallePrestamo from './components/PrestamosPrivados/DetallePrestamo'
+import PrestamosLista from './pages/PrestamosLista'
+import PrestamosCobros from './pages/PrestamosCobros'
 
 // Ruta secreta de acceso del staff. No está linkeada desde ningún lado
 // público: a diferencia de "/login", nadie que solo navegue el sitio la va
@@ -130,6 +132,8 @@ function AppRoutes() {
         <Route path="configuracion" element={<Configuracion />} />
         <Route path="autorizacion" element={<Autorizacion />} />
         <Route path="prestamos-privados" element={<PrestamosPrivados />} />
+        <Route path="prestamos-privados/lista" element={<PrestamosLista />} />
+        <Route path="prestamos-privados/cobros" element={<PrestamosCobros />} />
         <Route path="prestamos-privados/nuevo" element={<NuevoPrestamo />} />
         <Route path="prestamos-privados/:id" element={<DetallePrestamo />} />
       </Route>
