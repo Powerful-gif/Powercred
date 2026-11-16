@@ -29,10 +29,21 @@ function precioPvp(raw) {
   return p ? parseFloat(p.precio) : 0
 }
 
-function stockDeposito(raw) {
-  const depositoId = Number(process.env.DUX_DEPOSITO_ID)
-  const s = (raw.stock || []).find(s => s.id === depositoId)
-  return s ? parseFloat(s.ctd_disponible) : 0
+function nombreVariante(s) {
+  return [s.color, s.talle].filter(x => x && x.trim() && x.trim() !== '.').join(' ')
+}
+
+// Los productos con variantes (color, talle) traen una línea de stock por
+// variante. Si el código escaneado es el de una variante, se muestra esa; si
+// no, la suma de las variantes con unidades (las negativas no restan).
+export function stockDeposito(raw, ean, depositoId) {
+  const lineas = (raw.stock || []).filter(s => s.id === depositoId)
+  const variante = lineas.find(s => s.cod_barra_detalle && s.cod_barra_detalle === ean)
+  if (variante) {
+    return { stock: parseFloat(variante.ctd_disponible) || 0, variante: nombreVariante(variante) || null }
+  }
+  const stock = lineas.reduce((suma, s) => suma + Math.max(0, parseFloat(s.ctd_disponible) || 0), 0)
+  return { stock, variante: null }
 }
 
 async function buscarProductoTN(codItem) {
@@ -106,12 +117,12 @@ export default async function handler(req, res) {
     })
   }
 
-  const nombre = raw.item || ''
+  const { stock, variante } = stockDeposito(raw, ean, Number(process.env.DUX_DEPOSITO_ID))
+  const nombre = variante ? `${raw.item || ''} (${variante})` : raw.item || ''
   const marca = raw.marca?.marca || null
   const rubro = raw.rubro?.nombre || null
   const subRubro = raw.sub_rubro?.nombre || null
   const precioPVP = precioPvp(raw)
-  const stock = stockDeposito(raw)
 
   let descripcionHtml = ''
   let imagenes = []
@@ -125,7 +136,7 @@ export default async function handler(req, res) {
   }
 
   if (!fuenteDescripcion) {
-    const textoIA = await generarCaracteristicasIA(nombre, marca, rubro)
+    const textoIA = await generarCaracteristicasIA(raw.item || '', marca, rubro)
     if (textoIA) {
       descripcionHtml = `<p>${textoIA.replace(/\n/g, '<br>')}</p>`
       fuenteDescripcion = 'ia'
