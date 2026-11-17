@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { formatMoneda, formatFecha, formatPorcentaje } from '../../lib/formatters'
+import { formatMoneda, formatFecha, formatPorcentaje, hoyArgentina } from '../../lib/formatters'
 import { calcularMora, calcularEstadoCredito } from '../../lib/calculos'
 import { useConfig } from '../../context/ConfigContext'
 import { useAuth } from '../../context/AuthContext'
@@ -13,17 +13,22 @@ const ESTADO_BADGE = {
   atrasado:   'badge-atrasado',
   mora:       'badge-mora',
   incobrable: 'badge-incobrable',
-  cancelado:  'badge-cancelado'
+  cancelado:  'badge-cancelado',
+  refinanciado: 'badge-refinanciado',
+  cobrado_abogado: 'badge-cobrado_abogado'
 }
 const ESTADO_LABEL = {
   activo: 'Al día', atrasado: 'Atrasado', mora: 'En mora',
-  incobrable: 'Incobrable', cancelado: 'Cancelado'
+  incobrable: 'Incobrable', cancelado: 'Cancelado',
+  refinanciado: 'Refinanciado', cobrado_abogado: 'Cobrado por abogado'
 }
+const ESTADOS_REFINANCIABLES = ['activo', 'atrasado', 'mora', 'incobrable']
 const CUOTA_BADGE = {
   pendiente: 'bg-gray-100 text-gray-600',
   pagada:    'bg-green-100 text-green-700',
   vencida:   'bg-orange-100 text-orange-700',
-  mora:      'bg-red-100 text-red-700'
+  mora:      'bg-red-100 text-red-700',
+  refinanciada: 'bg-purple-100 text-purple-700'
 }
 
 export default function DetalleCredito() {
@@ -42,6 +47,9 @@ export default function DetalleCredito() {
   const [anulando, setAnulando] = useState(false)
   const [editandoMetodo, setEditandoMetodo] = useState(null)
   const [nuevoMetodo, setNuevoMetodo] = useState('')
+  const [vinculos, setVinculos] = useState({ refinancia: null, refinanciadoEn: null })
+  const [abogado, setAbogado] = useState(null)
+  const [errorAccion, setErrorAccion] = useState('')
 
   useEffect(() => {
     cargar()
@@ -64,10 +72,42 @@ export default function DetalleCredito() {
       .select('*')
       .eq('credito_id', id)
       .order('created_at', { ascending: false })
+    // Crédito viejo que este refinancia, y crédito nuevo que refinanció a este
+    const [{ data: viejo }, { data: nuevo }] = await Promise.all([
+      cred?.refinancia_credito_id
+        ? supabase.from('creditos').select('id, numero_credito').eq('id', cred.refinancia_credito_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      supabase.from('creditos').select('id, numero_credito').eq('refinancia_credito_id', id).maybeSingle(),
+    ])
     setCredito(cred)
     setCuotas(ctas || [])
     setPagos(pgos || [])
+    setVinculos({ refinancia: viejo, refinanciadoEn: nuevo })
     setLoading(false)
+  }
+
+  async function guardarAbogado() {
+    const monto = parseFloat(abogado.monto)
+    if (!(monto >= 0) || !abogado.fecha) return setErrorAccion('Cargá el monto recuperado y la fecha.')
+    const { error } = await supabase.from('creditos').update({
+      estado: 'cobrado_abogado',
+      abogado_monto: monto,
+      abogado_fecha: abogado.fecha,
+      abogado_observaciones: abogado.observaciones.trim() || null,
+    }).eq('id', id)
+    if (error) return setErrorAccion('No se pudo guardar: ' + error.message)
+    setAbogado(null)
+    setErrorAccion('')
+    cargar()
+  }
+
+  async function volverAIncobrable() {
+    if (!window.confirm('¿Volver este crédito a incobrable y borrar lo registrado del abogado?')) return
+    const { error } = await supabase.from('creditos').update({
+      estado: 'incobrable', abogado_monto: null, abogado_fecha: null, abogado_observaciones: null,
+    }).eq('id', id)
+    if (error) return setErrorAccion('No se pudo cambiar: ' + error.message)
+    cargar()
   }
 
   function imprimirDoc(doc) {
@@ -86,7 +126,9 @@ export default function DetalleCredito() {
       fecha_pago: null
     }).eq('id', pago.cuota_id)
     const { data: todasCuotas } = await supabase.from('cuotas').select('*').eq('credito_id', id)
-    const nuevoEstado = calcularEstadoCredito(todasCuotas || [], 'activo')
+    // Un crédito refinanciado o cobrado por abogado sigue cerrado aunque se anule un cobro viejo
+    const cerrado = ['refinanciado', 'cobrado_abogado'].includes(credito.estado)
+    const nuevoEstado = calcularEstadoCredito(todasCuotas || [], cerrado ? credito.estado : 'activo')
     await supabase.from('creditos').update({ estado: nuevoEstado }).eq('id', id)
     setConfirmAnular(null)
     setAnulando(false)
@@ -119,7 +161,7 @@ export default function DetalleCredito() {
   const tasaMora = config.mora?.tasa_diaria ?? 0.3
   // Punitorio sobre lo que falta pagar de cada cuota, igual que en Cobros
   const moraDeCuota = c => calcularMora(Number(c.importe_original) - Number(c.importe_pagado || 0), c.fecha_vencimiento, tasaMora)
-  const cuotasAdeudadas = cuotas.filter(c => c.estado !== 'pagada')
+  const cuotasAdeudadas = cuotas.filter(c => c.estado !== 'pagada' && c.estado !== 'refinanciada')
   const saldoCuotas = cuotasAdeudadas.reduce((s, c) => s + Number(c.importe_original) - Number(c.importe_pagado || 0), 0)
   const punitorios = cuotasAdeudadas.reduce((s, c) => s + moraDeCuota(c).mora, 0)
   const saldoPendiente = saldoCuotas + punitorios
@@ -174,11 +216,75 @@ export default function DetalleCredito() {
             <Link to={`/cobros?cliente=${credito.cliente_id}`} className="btn-primary text-sm">
               Ir a cobrar
             </Link>
+            {ESTADOS_REFINANCIABLES.includes(credito.estado) && saldoPendiente > 0 && (
+              <Link to={`/creditos/nuevo?refinancia=${credito.id}`} className="text-sm px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium">
+                Refinanciar
+              </Link>
+            )}
+            {credito.estado === 'incobrable' && (
+              <button
+                onClick={() => { setErrorAccion(''); setAbogado({ monto: saldoPendiente.toFixed(2), fecha: hoyArgentina(), observaciones: '' }) }}
+                className="text-sm px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium"
+              >
+                Cobrado por abogado
+              </button>
+            )}
             <button onClick={() => setConfirmBorrar(true)} className="btn-danger text-sm">
               Borrar crédito
             </button>
           </div>
         </div>
+
+        {(vinculos.refinancia || vinculos.refinanciadoEn) && (
+          <div className="mt-4 text-sm bg-purple-50 border border-purple-200 text-purple-800 rounded-lg px-3 py-2">
+            {vinculos.refinanciadoEn && (
+              <div>Este crédito se refinanció en <Link to={`/creditos/${vinculos.refinanciadoEn.id}`} className="font-semibold underline">{vinculos.refinanciadoEn.numero_credito}</Link>. Sus cuotas sin pagar pasaron a ese crédito.</div>
+            )}
+            {vinculos.refinancia && (
+              <div>Este crédito refinancia la deuda de <Link to={`/creditos/${vinculos.refinancia.id}`} className="font-semibold underline">{vinculos.refinancia.numero_credito}</Link>.</div>
+            )}
+          </div>
+        )}
+
+        {credito.estado === 'cobrado_abogado' && (
+          <div className="mt-4 text-sm bg-teal-50 border border-teal-200 text-teal-900 rounded-lg px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              Recuperado por abogado: <strong>{formatMoneda(credito.abogado_monto)}</strong> el {formatFecha(credito.abogado_fecha)}
+              {credito.abogado_observaciones && <span className="text-teal-700"> · {credito.abogado_observaciones}</span>}
+            </div>
+            <button onClick={volverAIncobrable} className="text-xs text-teal-700 hover:underline">Volver a incobrable</button>
+          </div>
+        )}
+
+        {abogado && (
+          <div className="mt-4 border-2 border-teal-200 bg-teal-50 rounded-xl p-4 space-y-3">
+            <div className="font-semibold text-teal-900">Registrar cobro por abogado</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="label text-xs">Monto recuperado</label>
+                <input type="number" className="input-field" min="0" step="0.01" value={abogado.monto}
+                  onChange={e => setAbogado(prev => ({ ...prev, monto: e.target.value }))} />
+              </div>
+              <div>
+                <label className="label text-xs">Fecha</label>
+                <input type="date" className="input-field" value={abogado.fecha}
+                  onChange={e => setAbogado(prev => ({ ...prev, fecha: e.target.value }))} />
+              </div>
+              <div>
+                <label className="label text-xs">Nota (opcional)</label>
+                <input type="text" className="input-field" placeholder="Ej: abogado, acuerdo" value={abogado.observaciones}
+                  onChange={e => setAbogado(prev => ({ ...prev, observaciones: e.target.value }))} />
+              </div>
+            </div>
+            <div className="text-xs text-teal-800">La deuda hoy es {formatMoneda(saldoPendiente)}. Cargá lo que realmente se recuperó.</div>
+            {errorAccion && <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{errorAccion}</div>}
+            <div className="flex gap-3">
+              <button onClick={guardarAbogado} className="btn-primary">Guardar</button>
+              <button onClick={() => setAbogado(null)} className="btn-secondary">Cancelar</button>
+            </div>
+          </div>
+        )}
+        {errorAccion && !abogado && <div className="mt-3 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{errorAccion}</div>}
 
         {/* Info crédito */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5 pt-4 border-t border-gray-100">
@@ -264,7 +370,7 @@ export default function DetalleCredito() {
             </thead>
             <tbody>
               {cuotas.map(cuota => {
-                const mora = cuota.estado !== 'pagada' ? moraDeCuota(cuota) : { dias: 0, mora: 0 }
+                const mora = cuota.estado !== 'pagada' && cuota.estado !== 'refinanciada' ? moraDeCuota(cuota) : { dias: 0, mora: 0 }
                 return (
                   <tr key={cuota.id} className={`border-b border-gray-100 ${cuota.estado === 'pagada' ? 'opacity-60' : ''}`}>
                     <td className="py-2 px-2 font-medium">{cuota.numero_cuota}</td>
@@ -374,7 +480,7 @@ export default function DetalleCredito() {
       )}
       {docActivo === 'derivacion' && (() => {
         const hoyStr = new Date().toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', day: '2-digit', month: '2-digit', year: 'numeric' })
-        const cuotasPendientes = cuotas.filter(c => c.estado !== 'pagada')
+        const cuotasPendientes = cuotasAdeudadas
         const totalCapital = cuotasPendientes.reduce((s, c) => s + Number(c.importe_original) - Number(c.importe_pagado || 0), 0)
         const totalPunitorios = cuotasPendientes.reduce((s, c) => {
           const saldoBase = Number(c.importe_original) - Number(c.importe_pagado || 0)
@@ -498,7 +604,7 @@ export default function DetalleCredito() {
                 </thead>
                 <tbody>
                   {cuotas.map(c => {
-                    const moraImpresa = c.estado === 'pagada'
+                    const moraImpresa = c.estado === 'refinanciada' ? '-' : c.estado === 'pagada'
                       ? (c.interes_mora > 0 ? formatMoneda(c.interes_mora) : '-')
                       : (() => { const m = moraDeCuota(c); return m.mora > 0 ? formatMoneda(m.mora) : '-' })()
                     return (

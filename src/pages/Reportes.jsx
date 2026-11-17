@@ -44,6 +44,7 @@ export default function Reportes() {
       else if (tab === 'cartera') await reporteCartera()
       else if (tab === 'cobrador') await reporteCobrador()
       else if (tab === 'mejores') await reporteMejoresClientes()
+      else if (tab === 'abogado') await reporteAbogado()
     } catch (e) { console.error(e) }
     setLoading(false)
   }
@@ -109,6 +110,20 @@ export default function Reportes() {
     setTimeout(() => setMensajeCopiado(''), 3000)
   }
 
+  // Recuperado por vía legal: va aparte de las cobranzas normales
+  async function reporteAbogado() {
+    const { data } = await supabase
+      .from('creditos')
+      .select('*, clientes(nombre, apellido, codigo)')
+      .eq('estado', 'cobrado_abogado')
+      .gte('abogado_fecha', desde)
+      .lte('abogado_fecha', hasta)
+      .order('abogado_fecha', { ascending: false })
+    setDatos(data || [])
+    const total = (data || []).reduce((s, c) => s + Number(c.abogado_monto || 0), 0)
+    setTotales({ total, cantidad: (data || []).length })
+  }
+
   async function reporteCobranzas() {
     const { data } = await supabase
       .from('pagos')
@@ -160,7 +175,7 @@ export default function Reportes() {
     const { data } = await supabase
       .from('creditos')
       .select('estado, importe_original, total_con_intereses')
-      .neq('estado', 'cancelado')
+      .not('estado', 'in', '(cancelado,refinanciado,cobrado_abogado)')
     const resumen = {}
     for (const c of (data || [])) {
       if (!resumen[c.estado]) resumen[c.estado] = { cantidad: 0, importe: 0, total: 0 }
@@ -203,9 +218,10 @@ export default function Reportes() {
     { key: 'cartera', label: 'Cartera total' },
     { key: 'cobrador', label: 'Por cobrador' },
     { key: 'mejores', label: 'Mejores clientes' },
+    { key: 'abogado', label: 'Cobrado por abogado' },
   ]
 
-  const conFechas = ['cobranzas', 'creditos', 'cobrador']
+  const conFechas = ['cobranzas', 'creditos', 'cobrador', 'abogado']
 
   return (
     <div className="space-y-5">
@@ -447,6 +463,32 @@ export default function Reportes() {
                       <td className="py-3 px-2 text-right font-semibold">{r.cantidad}</td>
                       <td className="py-3 px-2 text-right">{formatMoneda(r.importe)}</td>
                       <td className="py-3 px-2 text-right font-semibold text-blue-700">{formatMoneda(r.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {/* Cobrado por abogado */}
+            {tab === 'abogado' && (
+              <table className="w-full text-sm">
+                <thead><tr className="border-b-2 border-gray-200">
+                  <th className="text-left py-2 px-2 text-gray-500 font-medium">Fecha</th>
+                  <th className="text-left py-2 px-2 text-gray-500 font-medium">Crédito</th>
+                  <th className="text-left py-2 px-2 text-gray-500 font-medium">Cliente</th>
+                  <th className="text-right py-2 px-2 text-gray-500 font-medium">Importe original</th>
+                  <th className="text-right py-2 px-2 text-gray-500 font-medium">Recuperado</th>
+                  <th className="text-left py-2 px-2 text-gray-500 font-medium">Nota</th>
+                </tr></thead>
+                <tbody>
+                  {datos.map(c => (
+                    <tr key={c.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-2 px-2">{formatFecha(c.abogado_fecha)}</td>
+                      <td className="py-2 px-2 font-mono text-xs text-blue-700">{c.numero_credito}</td>
+                      <td className="py-2 px-2">{c.clientes?.apellido}, {c.clientes?.nombre}</td>
+                      <td className="py-2 px-2 text-right">{formatMoneda(c.importe_original)}</td>
+                      <td className="py-2 px-2 text-right font-semibold text-teal-700">{formatMoneda(c.abogado_monto)}</td>
+                      <td className="py-2 px-2 text-gray-500 text-xs">{c.abogado_observaciones || '-'}</td>
                     </tr>
                   ))}
                 </tbody>

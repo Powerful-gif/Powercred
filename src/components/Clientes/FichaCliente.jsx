@@ -306,7 +306,7 @@ export default function FichaCliente() {
                           className="text-blue-600 hover:underline text-xs">
                           Ver detalle
                         </Link>
-                        {cred.estado !== 'incobrable' && cred.estado !== 'cancelado' && (
+                        {!['incobrable', 'cancelado', 'refinanciado', 'cobrado_abogado'].includes(cred.estado) && (
                           <button
                             onClick={() => setConfirmIncobrable(cred.id)}
                             className="text-red-500 hover:underline text-xs"

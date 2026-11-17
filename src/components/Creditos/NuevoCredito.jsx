@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useConfig } from '../../context/ConfigContext'
 import {
   calcularCuota, calcularTEA, calcularCFT, calcularPrimerVencimiento,
-  generarFechasVencimiento, calcularCapacidadDisponible
+  generarFechasVencimiento, calcularCapacidadDisponible, calcularMora
 } from '../../lib/calculos'
 import { formatMoneda, formatFecha, hoyArgentina } from '../../lib/formatters'
 import TarjetaCuotasDoc from '../Documentos/TarjetaCuotas'
@@ -59,6 +59,8 @@ export default function NuevoCredito() {
   const [buscandoProducto, setBuscandoProducto] = useState(false)
   const [errorProducto, setErrorProducto] = useState('')
   const [avisoDux, setAvisoDux] = useState(false)
+  const [refinancia, setRefinancia] = useState(null)
+  const [avisoRefinanciar, setAvisoRefinanciar] = useState('')
   const [entregaInicial, setEntregaInicial] = useState('')
 
   const subtotalProductos = itemsProductos.reduce(
@@ -127,9 +129,37 @@ export default function NuevoCredito() {
   }
 
   useEffect(() => {
-    const clienteId = searchParams.get('cliente')
-    if (clienteId) cargarClientePorId(clienteId)
+    const refinanciaId = searchParams.get('refinancia')
+    if (refinanciaId) cargarRefinanciacion(refinanciaId)
+    else {
+      const clienteId = searchParams.get('cliente')
+      if (clienteId) cargarClientePorId(clienteId)
+    }
   }, [])
+
+  // Refinanciar: arranca con el cliente y la deuda total (cuotas sin pagar más
+  // punitorios) del crédito viejo; el importe se puede bajar para perdonar parte.
+  async function cargarRefinanciacion(creditoId) {
+    const [{ data: viejo }, { data: cuotasViejas }] = await Promise.all([
+      supabase.from('creditos').select('*, clientes(*)').eq('id', creditoId).single(),
+      supabase.from('cuotas').select('*').eq('credito_id', creditoId),
+    ])
+    if (!viejo) return setBusquedaError('No se encontró el crédito a refinanciar.')
+    if (!['activo', 'atrasado', 'mora', 'incobrable'].includes(viejo.estado)) {
+      return setBusquedaError(`El crédito ${viejo.numero_credito} ya está cerrado o refinanciado.`)
+    }
+    const tasaMora = config.mora?.tasa_diaria ?? 0.3
+    const deuda = (cuotasViejas || [])
+      .filter(c => c.estado !== 'pagada' && c.estado !== 'refinanciada')
+      .reduce((s, c) => {
+        const saldo = Number(c.importe_original) - Number(c.importe_pagado || 0)
+        return s + calcularMora(saldo, c.fecha_vencimiento, tasaMora).total
+      }, 0)
+    setRefinancia({ id: viejo.id, numero: viejo.numero_credito, deuda: Math.round(deuda * 100) / 100 })
+    setTipo(viejo.tipo)
+    setImporte(String(Math.round(deuda * 100) / 100))
+    await seleccionarCliente(viejo.clientes, viejo.id)
+  }
 
   useEffect(() => {
     const pEf = modoPersonalizado ? periodicidadPersonalizada : periodicidad
@@ -163,13 +193,15 @@ export default function NuevoCredito() {
     }
   }
 
-  async function seleccionarCliente(cli) {
+  async function seleccionarCliente(cli, refinanciaId = null) {
     const { data: incobrables } = await supabase
       .from('creditos')
       .select('id')
       .eq('cliente_id', cli.id)
       .eq('estado', 'incobrable')
-    if (incobrables && incobrables.length > 0) {
+    // Al refinanciar un incobrable, ese mismo crédito no bloquea
+    const otrosIncobrables = (incobrables || []).filter(c => c.id !== refinanciaId)
+    if (otrosIncobrables.length > 0) {
       setBusquedaError('Este cliente tiene un crédito derivado a asesor legal. No se puede crear un nuevo crédito.')
       return
     }
@@ -179,7 +211,7 @@ export default function NuevoCredito() {
       .eq('cliente_id', cli.id)
       .in('estado', ['activo', 'atrasado', 'mora'])
     setClienteEncontrado(cli)
-    setCreditosActivos(creds || [])
+    setCreditosActivos((creds || []).filter(c => c.id !== refinanciaId))
     setPaso(2)
   }
 
@@ -237,7 +269,8 @@ export default function NuevoCredito() {
     const numeroCredito = `CRED-${String(siguienteNum).padStart(4, '0')}`
 
     const notaEntrega = entregaInicialNum > 0 ? `Entrega: ${formatMoneda(entregaInicialNum)}` : ''
-    const observacionesFinal = [observaciones.trim(), notaEntrega].filter(Boolean).join(' · ') || null
+    const notaRefinancia = refinancia ? `Refinancia ${refinancia.numero}` : ''
+    const observacionesFinal = [notaRefinancia, observaciones.trim(), notaEntrega].filter(Boolean).join(' · ') || null
 
     const credito = {
       numero_credito: numeroCredito,
@@ -256,7 +289,8 @@ export default function NuevoCredito() {
       estado: 'activo',
       vendedor: vendedor || null,
       cobrador: cobrador || null,
-      observaciones: observacionesFinal
+      observaciones: observacionesFinal,
+      ...(refinancia ? { refinancia_credito_id: refinancia.id } : {})
     }
 
     const { data: credData, error } = await supabase
@@ -285,6 +319,13 @@ export default function NuevoCredito() {
     }))
 
     const { data: cuotasData } = await supabase.from('cuotas').insert(cuotas).select()
+
+    if (refinancia) {
+      const { error: errRefi } = await supabase.rpc('marcar_refinanciado', { p_viejo: refinancia.id, p_nuevo: credData.id })
+      if (errRefi) {
+        setAvisoRefinanciar(`El crédito nuevo se guardó, pero no se pudo cerrar ${refinancia.numero}: ${errRefi.message}. Avisá para corregirlo antes de cobrar.`)
+      }
+    }
 
     if (itemsProductos.length > 0) {
       const resultado = await facturarEnDux(clienteEncontrado, itemsProductos)
@@ -355,6 +396,15 @@ export default function NuevoCredito() {
           {creditoGuardado.numero_credito} · {clienteEncontrado?.apellido}, {clienteEncontrado?.nombre}
         </p>
       </div>
+
+      {avisoRefinanciar && (
+        <div className="bg-red-50 border border-red-300 rounded-xl p-4 text-sm text-red-800">{avisoRefinanciar}</div>
+      )}
+      {refinancia && !avisoRefinanciar && (
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 text-sm text-purple-800">
+          {refinancia.numero} quedó como <strong>Refinanciado</strong>: sus cuotas sin pagar pasaron a este crédito.
+        </div>
+      )}
 
       {avisoDux && (
         <div className="bg-orange-50 border border-orange-300 rounded-xl p-4 text-sm text-orange-800">
@@ -440,6 +490,14 @@ export default function NuevoCredito() {
         </button>
         <h2 className="text-lg font-semibold text-gray-700">Nuevo Crédito · Paso 2 de 2</h2>
       </div>
+
+      {refinancia && (
+        <div className="card bg-purple-50 border-purple-200 text-sm text-purple-900">
+          Refinanciando <strong>{refinancia.numero}</strong>. Deuda total con punitorios: <strong>{formatMoneda(refinancia.deuda)}</strong>.
+          El importe a financiar viene con ese monto: podés bajarlo para perdonar parte de los punitorios.
+          Al guardar, {refinancia.numero} queda como Refinanciado.
+        </div>
+      )}
 
       {/* Resumen cliente */}
       <div className="card bg-blue-50 border-blue-200">

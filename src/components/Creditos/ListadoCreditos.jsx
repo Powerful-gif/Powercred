@@ -4,21 +4,25 @@ import { supabase } from '../../lib/supabase'
 import { formatMoneda, formatFecha } from '../../lib/formatters'
 import { useAuth } from '../../context/AuthContext'
 
-const ESTADOS = ['todos', 'activo', 'atrasado', 'mora', 'incobrable', 'cancelado']
+const ESTADOS = ['todos', 'activo', 'atrasado', 'mora', 'incobrable', 'cancelado', 'refinanciado', 'cobrado_abogado']
 const ESTADO_LABELS = {
   todos: 'Todos',
   activo: 'Al día',
   atrasado: 'Atrasado',
   mora: 'En mora',
   incobrable: 'Incobrable',
-  cancelado: 'Cancelado'
+  cancelado: 'Cancelado',
+  refinanciado: 'Refinanciado',
+  cobrado_abogado: 'Cobrado por abogado'
 }
 const ESTADO_BADGE = {
   activo:     'badge-activo',
   atrasado:   'badge-atrasado',
   mora:       'badge-mora',
   incobrable: 'badge-incobrable',
-  cancelado:  'badge-cancelado'
+  cancelado:  'badge-cancelado',
+  refinanciado: 'badge-refinanciado',
+  cobrado_abogado: 'badge-cobrado_abogado'
 }
 
 export default function ListadoCreditos() {

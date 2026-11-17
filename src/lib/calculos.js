@@ -123,7 +123,7 @@ export function calcularMora(importeCuota, fechaVencimiento, tasaDiaria = 0.3) {
 // ============================================================
 
 export function calcularEstadoCredito(cuotas, estadoActual) {
-  if (estadoActual === 'incobrable' || estadoActual === 'cancelado') return estadoActual
+  if (['incobrable', 'cancelado', 'refinanciado', 'cobrado_abogado'].includes(estadoActual)) return estadoActual
 
   const hoy = hoyArgentina()
   const pendientes = cuotas.filter(c => c.estado !== 'pagada')
