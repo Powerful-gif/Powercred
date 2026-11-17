@@ -116,9 +116,13 @@ export default function DetalleCredito() {
   if (!credito) return <div className="text-center py-12 text-gray-400">Crédito no encontrado</div>
 
   const cuotasPagadas = cuotas.filter(c => c.estado === 'pagada').length
-  const saldoPendiente = cuotas
-    .filter(c => c.estado !== 'pagada')
-    .reduce((s, c) => s + Number(c.importe_original) - Number(c.importe_pagado || 0), 0)
+  const tasaMora = config.mora?.tasa_diaria ?? 0.3
+  // Punitorio sobre lo que falta pagar de cada cuota, igual que en Cobros
+  const moraDeCuota = c => calcularMora(Number(c.importe_original) - Number(c.importe_pagado || 0), c.fecha_vencimiento, tasaMora)
+  const cuotasAdeudadas = cuotas.filter(c => c.estado !== 'pagada')
+  const saldoCuotas = cuotasAdeudadas.reduce((s, c) => s + Number(c.importe_original) - Number(c.importe_pagado || 0), 0)
+  const punitorios = cuotasAdeudadas.reduce((s, c) => s + moraDeCuota(c).mora, 0)
+  const saldoPendiente = saldoCuotas + punitorios
 
   return (
     <div className="space-y-5 max-w-4xl">
@@ -211,6 +215,11 @@ export default function DetalleCredito() {
             <div className={`font-bold ${saldoPendiente > 0 ? 'text-orange-600' : 'text-green-600'}`}>
               {formatMoneda(Math.max(0, saldoPendiente))}
             </div>
+            {punitorios > 0 && (
+              <div className="text-xs text-gray-400">
+                Cuotas {formatMoneda(saldoCuotas)} + punitorios {formatMoneda(punitorios)}
+              </div>
+            )}
           </div>
         </div>
 
@@ -255,9 +264,7 @@ export default function DetalleCredito() {
             </thead>
             <tbody>
               {cuotas.map(cuota => {
-                const mora = cuota.estado !== 'pagada'
-                  ? calcularMora(cuota.importe_original, cuota.fecha_vencimiento, config.mora?.tasa_diaria)
-                  : { dias: 0, mora: 0 }
+                const mora = cuota.estado !== 'pagada' ? moraDeCuota(cuota) : { dias: 0, mora: 0 }
                 return (
                   <tr key={cuota.id} className={`border-b border-gray-100 ${cuota.estado === 'pagada' ? 'opacity-60' : ''}`}>
                     <td className="py-2 px-2 font-medium">{cuota.numero_cuota}</td>
@@ -472,7 +479,7 @@ export default function DetalleCredito() {
               <div><strong>Cuota {credito.periodicidad}:</strong> {formatMoneda(credito.importe_cuota)}</div>
               <div><strong>Cuotas:</strong> {cuotasPagadas}/{credito.cantidad_cuotas}</div>
               <div><strong>Tasa:</strong> {credito.tasa_interes_porcentaje}%</div>
-              <div><strong>Saldo pendiente:</strong> {formatMoneda(Math.max(0, saldoPendiente))}</div>
+              <div><strong>Saldo pendiente:</strong> {formatMoneda(Math.max(0, saldoPendiente))}{punitorios > 0 ? ` (incluye punitorios ${formatMoneda(punitorios)})` : ''}</div>
             </div>
             {/* Tabla cuotas */}
             <div style={{ marginBottom: '14px' }}>
@@ -493,7 +500,7 @@ export default function DetalleCredito() {
                   {cuotas.map(c => {
                     const moraImpresa = c.estado === 'pagada'
                       ? (c.interes_mora > 0 ? formatMoneda(c.interes_mora) : '-')
-                      : (() => { const m = calcularMora(c.importe_original, c.fecha_vencimiento, config.mora?.tasa_diaria); return m.mora > 0 ? formatMoneda(m.mora) : '-' })()
+                      : (() => { const m = moraDeCuota(c); return m.mora > 0 ? formatMoneda(m.mora) : '-' })()
                     return (
                     <tr key={c.id}>
                       <td style={{ border: '1px solid #ccc', padding: '4px', textAlign: 'center' }}>{c.numero_cuota}</td>
